@@ -85,7 +85,7 @@ def main():
     Main function to compute and print average accuracy metrics.
     """
     # Parameters
-    retrieval_results_path = 'retrieval_results.json'
+    retrieval_results_path = 'results/retrieval_results.json'
     N = 10  # Number of retrieved items to consider in metrics
 
     # Load retrieval results
