@@ -1,0 +1,43 @@
+<!-- Show loading message -->
+@if (isLoading()) {
+  <div class="loading-message">
+    <p>Loading... Please wait.</p>
+  </div>
+}
+
+<div class="container">
+  <!-- Display retrieval results -->
+  @if (recommenderService.randomRecommendation()) {
+    <p-panel header="Query song">
+      <div>
+        <p><strong>Title:</strong> {{ recommenderService.randomRecommendation()?.query_song?.song_title }}</p>
+        <p><strong>Artist:</strong> {{ recommenderService.randomRecommendation()?.query_song?.artist }}</p>
+        <p><strong>Album:</strong> {{ recommenderService.randomRecommendation()?.query_song?.album_name }}</p>
+      </div>
+    </p-panel>
+
+    <p-panel header="Retrieved songs">
+      @if (recommenderService.randomRecommendation()) {
+
+        <p-accordion [multiple]="true">
+          @for (song of recommenderService.randomRecommendation()?.result_songs; track song) {
+
+            <app-retrieved-song [song]="song"></app-retrieved-song>
+          }
+        </p-accordion>
+
+      }
+    </p-panel>
+
+  }
+
+  @if (recommenderService.queryMetrics()) {
+    <app-query-metrics />
+  }
+
+  <p-button (onClick)="getQueryMetrics()">
+    Get Metrics
+  </p-button>
+</div>
+
+

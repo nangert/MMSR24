@@ -1,0 +1,14 @@
+<p-panel header="Metrics for Query">
+  <div>
+    MRR: {{ recommenderService.queryMetrics()?.mrr}}
+  </div>
+  <div>
+    NDCG at k: {{ recommenderService.queryMetrics()?.ndcg_at_k}}
+  </div>
+  <div>
+    Precision at k: {{ recommenderService.queryMetrics()?.precision_at_k}}
+  </div>
+  <div>
+    Recall at k: {{ recommenderService.queryMetrics()?.recall_at_k}}
+  </div>
+</p-panel>

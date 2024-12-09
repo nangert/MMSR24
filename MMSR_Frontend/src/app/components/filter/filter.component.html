@@ -1,0 +1,108 @@
+
+<div class="container">
+  <div class="mb-3">
+    <h4>
+      Please use some filters before using the dropdown, otherwise it will take a while!
+    </h4>
+    <h4>
+
+      You can also enter a song_id directly instead of selecting a song from the dropdown
+    </h4>
+  </div>
+
+
+  <!-- Filters -->
+  <div class="d-flex align-items-center gap-3 mb-3">
+      <div class="form-group">
+        <label for="artist">Artist:</label>
+        <input
+          id="artist"
+          name="querySongId"
+          pInputText
+          class="form-control"
+          placeholder="Artist"
+          [formControl]="filterForm.controls.artist"
+        />
+      </div>
+      <div>
+        <label for="album">Album:</label>
+        <input
+          id="album"
+          name="querySongId"
+          type="text"
+          pInputText
+          class="form-control"
+          placeholder="Album"
+          [formControl]="filterForm.controls.album_name"
+        />
+
+      </div>
+      <div>
+        <label for="title">Song Title:</label>
+        <input
+          id="title"
+          name="querySongId"
+          type="text"
+          pInputText
+          class="form-control"
+          placeholder="Song title"
+          [formControl]="filterForm.controls.song_title"
+        />
+      </div>
+
+  </div>
+
+
+  <div >
+    <div class="form-group mb-3">
+      <p-dropdown
+        [options]="dropdownValues()"
+        optionLabel="name"
+        optionValue="value"
+        placeholder="Select a Song"
+        [formControl]="retrievalForm.controls.songId"
+      />
+
+      Number of options: {{ dropdownValues().length }}
+    </div>
+
+    <form (submit)="retrieveSongs(); $event.preventDefault()" class="d-flex align-items-center gap-3 mb-3">
+
+      <div class="form-group mb-3">
+        <label for="querySongId">Query Song ID:</label>
+        <input
+          [formControl]="retrievalForm.controls.songId"
+          [value]="retrievalForm.controls.songId"
+          type="text"
+          id="querySongId"
+          class="form-control"
+          name="querySongId"
+          placeholder="Enter query song ID"
+          required
+        />
+      </div>
+
+      <div class="form-group mb-3">
+        <label for="nSongs">Number of Songs to Retrieve:</label>
+        <input
+          [formControl]="retrievalForm.controls.count"
+          type="number"
+          id="nSongs"
+          class="form-control"
+          name="nSongs"
+          min="1"
+          max="100"
+        />
+      </div>
+
+      <button
+        type="submit"
+        class="btn btn-primary"
+        [disabled]="isLoading() || !this.retrievalForm.controls.songId.value || !this.retrievalForm.controls.count.value"
+      >
+        Retrieve Songs
+      </button>
+    </form>
+  </div>
+
+</div>

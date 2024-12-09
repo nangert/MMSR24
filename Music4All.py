@@ -9,7 +9,7 @@ class Song:
     Represents a song with its associated metadata.
     """
 
-    def __init__(self, song_id: str, artist: str, song_title: str, album_name: str, genres: List[str]):
+    def __init__(self, song_id: str, artist: str, song_title: str, album_name: str, genres: List[str], url: str, spotify_id: str):
         """
         Initializes a Song instance.
 
@@ -25,6 +25,8 @@ class Song:
         self.song_title = song_title
         self.album_name = album_name
         self.genres = genres
+        self.url = url
+        self.spotify_id = spotify_id
 
     def to_dict(self) -> Dict[str, any]:
         """
@@ -38,16 +40,17 @@ class Song:
             'artist': self.artist,
             'song_title': self.song_title,
             'album_name': self.album_name,
-            'genres': self.genres
+            'genres': self.genres,
+            'url': self.url,
+            'spotify_id': self.spotify_id,
         }
-
 
 class Dataset:
     """
     Loads and stores song data from TSV files.
     """
 
-    def __init__(self, info_file_path: str, genres_file_path: str):
+    def __init__(self, info_file_path: str, genres_file_path: str, url_dataset_path: str, metadata_dataset_path: str):
         """
         Initializes the Dataset by loading song information and genres.
 
@@ -55,9 +58,9 @@ class Dataset:
             info_file_path (str): Path to the TSV file containing song information.
             genres_file_path (str): Path to the TSV file containing song genres.
         """
-        self.songs = self.load_dataset(info_file_path, genres_file_path)
+        self.songs = self.load_dataset(info_file_path, genres_file_path, url_dataset_path, metadata_dataset_path)
 
-    def load_dataset(self, info_file_path: str, genres_file_path: str) -> List[Song]:
+    def load_dataset(self, info_file_path: str, genres_file_path: str, url_dataset_path: str, metadata_dataset_path: str) -> List[Song]:
         """
         Loads the dataset from TSV files and merges song information with genres.
 
@@ -74,30 +77,42 @@ class Dataset:
             reader = csv.DictReader(tsvfile, delimiter='\t')
             for row in reader:
                 song_id = row['id']
-                genres_str = row['genre']
-                # Parse the genre string into a list
-                genres_list = ast.literal_eval(genres_str)
+                genres_list = ast.literal_eval(row['genre'])
                 genres_dict[song_id] = genres_list
 
-        # Load song information and merge with genres
+        # Load URL data
+        url_dict: Dict[str, str] = {}
+        with open(url_dataset_path, 'r', encoding='utf-8') as tsvfile:
+            reader = csv.DictReader(tsvfile, delimiter='\t')
+            for row in reader:
+                song_id = row['id']
+                url_dict[song_id] = row['url']
+
+        # Load Spotify metadata
+        metadata_dict: Dict[str, str] = {}
+        with open(metadata_dataset_path, 'r', encoding='utf-8') as tsvfile:
+            reader = csv.DictReader(tsvfile, delimiter='\t')
+            for row in reader:
+                song_id = row['id']
+                metadata_dict[song_id] = row['spotify_id']
+
+        # Load main song information and merge everything
         songs: List[Song] = []
         with open(info_file_path, 'r', encoding='utf-8') as tsvfile:
             reader = csv.DictReader(tsvfile, delimiter='\t')
             for row in reader:
                 song_id = row['id']
-                artist = row['artist']
-                song_title = row['song']
-                album_name = row['album_name']
-                genres = genres_dict.get(song_id, [])  # Default to empty list if not found
-
                 song = Song(
                     song_id=song_id,
-                    artist=artist,
-                    song_title=song_title,
-                    album_name=album_name,
-                    genres=genres
+                    artist=row.get('artist', ''),
+                    song_title=row.get('song', ''),
+                    album_name=row.get('album_name', ''),
+                    genres=genres_dict.get(song_id, []),
+                    url=url_dict.get(song_id, ''),
+                    spotify_id=metadata_dict.get(song_id, '')
                 )
                 songs.append(song)
+
         return songs
 
     def get_all_songs(self) -> List[Song]:
