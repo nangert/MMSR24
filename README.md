@@ -18,9 +18,9 @@ After it sucessfully installed all the packages just run 'ng serve' and navigate
 
 Install all the packages needed in the python scripts. (For the flask server pip install flask and pip install flask_cors should be enough)
 
-Open the flask_server.py in your prefered IDE (I use PyTorch, also free with student lisence), or run the file via a terminal.
+Open the flask_server.py in your prefered IDE (I use PyCharm, also free with student lisence), or run the file via a terminal.
 
-If you use Pytorch just use 'Run current file' which lets you hot-reload the API when you make changes to the flask_server.py
+If you use PyCharm just use 'Run current file' which lets you hot-reload the API when you make changes to the flask_server.py
 
 ![alt text](image-1.png)
 
