@@ -27,40 +27,46 @@ def calculate_metrics():
         # Parse the request body
         data = request.get_json()
 
-        query_song = data.get('query_song', {})
+        query_song = data.get('query_song', '')
         result_songs = data.get('result_songs', [])
         k = data.get('k', 10)
 
         if not query_song or not result_songs:
             return jsonify({"error": "Invalid or missing 'query_song' or 'result_songs'"}), 400
 
-        # Extract the query genres
-        query_genres = set(query_song.get('genres', []))
+        # Load genre weights and compute total relevant items
+        top_genre_weights = dataset.load_genre_weights('dataset/id_tags_dict.tsv', 'dataset/id_genres_mmsr.tsv')
 
-        # Create a binary relevance list for the result songs
-        relevant_labels: List[int] = []
+        query_song_id = query_song.get('song_id', '')
+        # Extract song ID and compute genres with the highest weight
+        query_genres = set(top_genre_weights.get(query_song_id, {}))
+
+        if not query_genres:
+            return jsonify({"error": f"No genres found for query song: {query_song}"}), 404
+
+        # Replace genres in result_songs with their top genres
+        result_songs_filtered_genre = []
         for song in result_songs:
-            song_genres = set(song.get('genres', []))
-            is_relevant = int(bool(query_genres & song_genres))  # 1 if there is any genre overlap
-            relevant_labels.append(is_relevant)
+            song_id = song.get('song_id', '')
+            top_genres = top_genre_weights.get(song_id, set())
+            if top_genres:
+                result_songs_filtered_genre.append({
+                    "song_id": song_id,
+                    "genres": list(top_genres)
+                })
 
-        relevant_labels_array = np.array(relevant_labels)
+        # Determine total relevant items
+        total_relevant = dataset.get_total_relevant(query_song, top_genre_weights)
 
         # Calculate metrics
-        precision = Metrics.precision_at_k(relevant_labels_array, k)
-        recall = Metrics.recall_at_k(relevant_labels_array, k)
-        ndcg = Metrics.ndcg_at_k(relevant_labels_array, k)
-        mrr = Metrics.mrr(relevant_labels_array)
+        metrics_instance = Metrics()
+        result = metrics_instance.calculate_metrics(query_song, result_songs_filtered_genre, total_relevant, query_genres, k)
 
         # Return all metrics as a JSON response
-        return jsonify({
-            "precision_at_k": precision,
-            "recall_at_k": recall,
-            "ndcg_at_k": ndcg,
-            "mrr": mrr
-        })
+        return jsonify(result)
 
     except Exception as e:
+        print(e)
         return jsonify({"error": str(e)}), 500
 
 @app.route('/songs', methods=['GET'])
