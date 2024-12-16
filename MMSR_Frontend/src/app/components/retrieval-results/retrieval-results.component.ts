@@ -26,12 +26,4 @@ export class RetrievalResultsComponent {
     return this.recommenderService.isLoadingSongs() || this.recommenderService.isLoadingRecommendations()
   })
 
-  getQueryMetrics(): void {
-    const body = this.recommenderService.randomRecommendation()
-    if (body) {
-      this.recommenderService.getQueryMetrics.next(body)
-    }
-  }
-
-
 }

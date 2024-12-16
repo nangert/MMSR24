@@ -9,6 +9,8 @@ from Music4All import Dataset, Song
 from accuracy_metrics import Metrics
 from baseline_system import BaselineRetrievalSystem
 from bert import BertRetrievalSystem
+from mfcc_retrieval import MFCCRetrievalSystem
+
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
@@ -18,12 +20,15 @@ genres_dataset_path = 'dataset/id_genres_mmsr.tsv'     # Path to your genres TSV
 url_dataset_path = 'dataset/id_url_mmsr.tsv'
 metadata_dataset_path = 'dataset/id_metadata_mmsr.tsv'
 bert_embeddings_path = 'dataset/id_lyrics_bert_mmsr.tsv'
+
+bow_path = 'dataset/id_mfcc_bow_mmsr.tsv'
+stats_path = 'dataset/id_mfcc_stats_mmsr.tsv'
 dataset = Dataset(info_dataset_path, genres_dataset_path, url_dataset_path, metadata_dataset_path, bert_embeddings_path)
 
 # TODO: Add frontend code to give the user the ability to select the retrieval system
 baseline_retrieval_system = BaselineRetrievalSystem(dataset)
 bert_retrieval_system = BertRetrievalSystem(dataset)
-
+mfcc_retrieval_system = MFCCRetrievalSystem(bow_path, stats_path, dataset)
 
 @app.route('/calculate_metrics', methods=['POST'])
 def calculate_metrics():
@@ -109,9 +114,13 @@ def retrieve_songs():
             case 'Bert':
                 print('bert')
                 retrieved_songs = bert_retrieval_system.get_retrieval(query_song, N)
+            case 'MFCC':
+                print('mfcc')
+                retrieved_songs = mfcc_retrieval_system.recommend_similar_songs(query_song, N)
             case _:
                 print('default')
                 retrieved_songs = bert_retrieval_system.get_retrieval(query_song, N)
+
 
         response = {
             'query_song': query_song.to_dict(),

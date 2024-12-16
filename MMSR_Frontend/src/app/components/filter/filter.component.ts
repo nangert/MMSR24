@@ -32,7 +32,8 @@ export class FilterComponent implements OnInit{
   categories: any[] = [
     { name: 'Baseline', key: 'Baseline' },
     { name: 'Text based', key: 'TfIdf' },
-    { name: 'BERT', key: 'Bert' }
+    { name: 'BERT', key: 'Bert' },
+    { name: 'MFCC', key: 'MFCC' }
   ];
 
   retrievalForm: FormGroup<RetrieveModel> = this.formBuilder.group({

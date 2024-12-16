@@ -19,8 +19,6 @@ export class RecommenderService {
   getRandomRecommendations$ = this.getRandomRecommendations.asObservable();
   isLoadingRecommendations: WritableSignal<boolean> = signal(false)
 
-  getQueryMetrics: Subject<RetrieveResult> = new Subject<RetrieveResult>();
-  getQueryMetrics$ = this.getQueryMetrics.asObservable();
   isLoadingQueryMetrics: WritableSignal<boolean> = signal(false)
 
   songs$: Observable<Song[]> = this.reloadSongs$.pipe(
