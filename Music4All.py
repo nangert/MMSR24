@@ -2,6 +2,7 @@
 import csv
 import ast
 from typing import List, Dict
+import numpy as np
 
 
 class Song:
@@ -45,59 +46,89 @@ class Song:
             'spotify_id': self.spotify_id,
         }
 
+
 class Dataset:
     """
     Loads and stores song data from TSV files.
     """
 
-    def __init__(self, info_file_path: str, genres_file_path: str, url_dataset_path: str, metadata_dataset_path: str):
+    def __init__(self, info_file_path: str, genres_file_path: str, url_dataset_path: str, metadata_dataset_path: str, bert_embeddings_path: str):
         """
-        Initializes the Dataset by loading song information and genres.
+        Initializes the Dataset by loading song information, genres, and BERT embeddings.
 
         Args:
             info_file_path (str): Path to the TSV file containing song information.
             genres_file_path (str): Path to the TSV file containing song genres.
+            url_dataset_path (str): Path to the TSV file containing song URLs.
+            metadata_dataset_path (str): Path to the TSV file containing song metadata (e.g., Spotify IDs).
+            bert_embeddings_path (str): Path to the TSV file containing precomputed BERT embeddings.
         """
-        self.songs = self.load_dataset(info_file_path, genres_file_path, url_dataset_path, metadata_dataset_path)
+        self.songs = []
+        self.bert_embeddings = {}
+        self.load_dataset(info_file_path, genres_file_path, url_dataset_path, metadata_dataset_path, bert_embeddings_path)
 
-    def load_dataset(self, info_file_path: str, genres_file_path: str, url_dataset_path: str, metadata_dataset_path: str) -> List[Song]:
+    def load_dataset(self, info_file_path: str, genres_file_path: str, url_dataset_path: str, metadata_dataset_path: str, bert_embeddings_path: str):
+        # Load genres, URLs, metadata using a unified helper
+        genres_dict = self._load_dict_from_tsv(
+            file_path=genres_file_path,
+            key_col='id',
+            value_col='genre',
+            transform=lambda val: ast.literal_eval(val)
+        )
+
+        url_dict = self._load_dict_from_tsv(
+            file_path=url_dataset_path,
+            key_col='id',
+            value_col='url'
+        )
+
+        metadata_dict = self._load_dict_from_tsv(
+            file_path=metadata_dataset_path,
+            key_col='id',
+            value_col='spotify_id'
+        )
+
+        # Load BERT embeddings separately due to different format
+        self.bert_embeddings = {}
+        with open(bert_embeddings_path, 'r', encoding='utf-8') as f:
+            header = f.readline()  # Skip header
+            for line in f:
+                parts = line.strip().split('\t')
+                track_id = parts[0]
+                vector_values = list(map(float, parts[1:]))
+                self.bert_embeddings[track_id] = np.array(vector_values, dtype=np.float32)
+
+        # Load main song information
+        self.songs = self._load_song_info(info_file_path, genres_dict, url_dict, metadata_dict)
+
+    @staticmethod
+    def _load_dict_from_tsv(file_path: str, key_col: str, value_col: str, transform=None) -> Dict[str, any]:
         """
-        Loads the dataset from TSV files and merges song information with genres.
+        A generic helper to load a TSV file into a dictionary.
 
         Args:
-            info_file_path (str): Path to the song information TSV file.
-            genres_file_path (str): Path to the song genres TSV file.
+            file_path (str): Path to the TSV file.
+            key_col (str): The name of the column to use as dictionary keys.
+            value_col (str): The name of the column to use as dictionary values.
+            transform (callable, optional): A function to transform the value before storing.
 
         Returns:
-            List[Song]: A list of Song objects with merged information.
+            Dict[str, any]: A dictionary mapping from key_col values to transformed value_col values.
         """
-        # Load genres data into a dictionary
-        genres_dict: Dict[str, List[str]] = {}
-        with open(genres_file_path, 'r', encoding='utf-8') as tsvfile:
+        result_dict = {}
+        with open(file_path, 'r', encoding='utf-8') as tsvfile:
             reader = csv.DictReader(tsvfile, delimiter='\t')
             for row in reader:
-                song_id = row['id']
-                genres_list = ast.literal_eval(row['genre'])
-                genres_dict[song_id] = genres_list
+                key = row[key_col]
+                val = row[value_col]
+                if transform:
+                    val = transform(val)
+                result_dict[key] = val
+        return result_dict
 
-        # Load URL data
-        url_dict: Dict[str, str] = {}
-        with open(url_dataset_path, 'r', encoding='utf-8') as tsvfile:
-            reader = csv.DictReader(tsvfile, delimiter='\t')
-            for row in reader:
-                song_id = row['id']
-                url_dict[song_id] = row['url']
-
-        # Load Spotify metadata
-        metadata_dict: Dict[str, str] = {}
-        with open(metadata_dataset_path, 'r', encoding='utf-8') as tsvfile:
-            reader = csv.DictReader(tsvfile, delimiter='\t')
-            for row in reader:
-                song_id = row['id']
-                metadata_dict[song_id] = row['spotify_id']
-
-        # Load main song information and merge everything
-        songs: List[Song] = []
+    @staticmethod
+    def _load_song_info(info_file_path: str, genres_dict: Dict[str, List[str]], url_dict: Dict[str, str], metadata_dict: Dict[str, str]) -> List[Song]:
+        songs = []
         with open(info_file_path, 'r', encoding='utf-8') as tsvfile:
             reader = csv.DictReader(tsvfile, delimiter='\t')
             for row in reader:
@@ -112,7 +143,6 @@ class Dataset:
                     spotify_id=metadata_dict.get(song_id, '')
                 )
                 songs.append(song)
-
         return songs
 
     def get_all_songs(self) -> List[Song]:

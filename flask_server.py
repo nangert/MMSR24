@@ -5,6 +5,7 @@ from flask_cors import CORS  # Import the CORS library
 from Music4All import Dataset, Song
 from accuracy_metrics import Metrics
 from baseline_system import BaselineRetrievalSystem
+from bert import BertRetrievalSystem
 import numpy as np
 from typing import Dict, List
 
@@ -16,8 +17,12 @@ info_dataset_path = 'dataset/id_information_mmsr.tsv'  # Path to your song infor
 genres_dataset_path = 'dataset/id_genres_mmsr.tsv'     # Path to your genres TSV file
 url_dataset_path = 'dataset/id_url_mmsr.tsv'
 metadata_dataset_path = 'dataset/id_metadata_mmsr.tsv'
-dataset = Dataset(info_dataset_path, genres_dataset_path, url_dataset_path, metadata_dataset_path)
-retrieval_system = BaselineRetrievalSystem(dataset)
+bert_embeddings_path = 'dataset/id_lyrics_bert_mmsr.tsv'
+dataset = Dataset(info_dataset_path, genres_dataset_path, url_dataset_path, metadata_dataset_path, bert_embeddings_path)
+
+# TODO: Add frontend code to give the user the ability to select the retrieval system
+# retrieval_system = BaselineRetrievalSystem(dataset)
+retrieval_system = BertRetrievalSystem(dataset)
 
 
 @app.route('/calculate_metrics', methods=['POST'])
@@ -93,7 +98,7 @@ def retrieve_songs():
         if not query_song:
             return jsonify({"error": "Query song not found"}), 404
 
-        retrieved_songs = retrieval_system.get_random_retrieval(query_song, N)
+        retrieved_songs = retrieval_system.get_retrieval(query_song, N)
         response = {
             'query_song': query_song.to_dict(),
             'result_songs': [song.to_dict() for song in retrieved_songs]

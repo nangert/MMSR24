@@ -23,7 +23,7 @@ class BaselineRetrievalSystem:
         """
         self.dataset = dataset
 
-    def get_random_retrieval(self, query_song: Song, N: int) -> List[Song]:
+    def get_retrieval(self, query_song: Song, N: int) -> List[Song]:
         """
         Retrieves N random songs from the dataset excluding the query song.
 
@@ -59,7 +59,7 @@ class BaselineRetrievalSystem:
 
 def main():
     """
-    Main function to execute the baseline retrieval system.
+    Main function to test the baseline retrieval system.
     """
     # Parameters
     info_dataset_path = 'dataset/id_information_mmsr.tsv'  # Path to your song information TSV file
