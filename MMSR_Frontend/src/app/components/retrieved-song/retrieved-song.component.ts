@@ -1,9 +1,7 @@
 import {Component, inject, Input} from '@angular/core';
 import {AccordionModule} from "primeng/accordion";
 import {Song} from "../../models/retrieveResult";
-import {RecommenderService} from "../../services/recommender.service";
 import {DomSanitizer, SafeResourceUrl} from "@angular/platform-browser";
-import {RecommenderApiService} from "../../services/recommender-api.service";
 import {NgxLiteYoutubeModule} from "ngx-lite-video";
 import {Button} from "primeng/button";
 
@@ -21,17 +19,12 @@ import {Button} from "primeng/button";
 export class RetrievedSongComponent {
   @Input() song!: Song;
 
-  recommenderService = inject(RecommenderService)
-  apiService = inject(RecommenderApiService)
   sanitizer = inject(DomSanitizer)
 
   getAccordionTitle(): string {
     return this.song.artist + ' - ' + this.song.song_title + ' (' + this.song.album_name + ')'
   }
 
-  getSpotifyId(): string {
-    return this.song?.spotify_id ?? 'no spotify id'
-  }
 
   getSafeUrl(url: string): SafeResourceUrl {
     if (!url) return '';

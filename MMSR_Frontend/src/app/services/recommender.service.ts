@@ -1,5 +1,5 @@
 import {inject, Injectable, Signal, signal, WritableSignal} from '@angular/core';
-import {finalize, Observable, Subject, switchMap, tap} from 'rxjs';
+import {Observable, Subject, switchMap, tap} from 'rxjs';
 import {RetrieveResult, Song} from '../models/retrieveResult';
 import {RecommenderApiService} from './recommender-api.service';
 import {toSignal} from '@angular/core/rxjs-interop';
@@ -36,12 +36,12 @@ export class RecommenderService {
     tap(() => this.isLoadingRecommendations.set(true)),
     switchMap((model) => {
       this.isLoadingRecommendations.set(false)
-      return this.apiService.getRandomRecommendations(model.songId, model.count)
+      return this.apiService.getRandomRecommendations(model.songId, model.count, model.model)
     })
   )
   randomRecommendation: Signal<RetrieveResult | undefined> = toSignal(this.randomRecommendation$)
 
-  queryMetrics$: Observable<QueryMetrics> = this.getQueryMetrics$.pipe(
+  queryMetrics$: Observable<QueryMetrics> = this.randomRecommendation$.pipe(
     tap(() => this.isLoadingQueryMetrics.set(true)),
     switchMap((body) => {
       this.isLoadingQueryMetrics.set(false)
@@ -49,5 +49,7 @@ export class RecommenderService {
     })
   )
   queryMetrics = toSignal(this.queryMetrics$)
+
+
 
 }

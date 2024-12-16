@@ -1,7 +1,6 @@
 import {Component, computed, inject} from '@angular/core';
 import {RecommenderService} from '../../services/recommender.service';
 import {AccordionModule} from "primeng/accordion";
-import {Song} from "../../models/retrieveResult";
 import {PanelModule} from "primeng/panel";
 import {RetrievedSongComponent} from "../retrieved-song/retrieved-song.component";
 import {Button} from "primeng/button";
@@ -30,7 +29,6 @@ export class RetrievalResultsComponent {
   getQueryMetrics(): void {
     const body = this.recommenderService.randomRecommendation()
     if (body) {
-      console.log(body)
       this.recommenderService.getQueryMetrics.next(body)
     }
   }

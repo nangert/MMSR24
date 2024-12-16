@@ -50,6 +50,24 @@
         />
       </div>
 
+    <div class="flex flex-column gap-3">
+      @for (category of categories; track category.key) {
+        <div class="field-checkbox">
+          <p-radioButton
+            [inputId]="category.key"
+            name="category"
+            [value]="category"
+            [(ngModel)]="selectedCategory"
+            [formControl]="retrievalForm.controls.retrievalSystem"
+          />
+          <label [for]="category.key" class="ml-2">
+            {{ category.name }}
+          </label>
+        </div>
+      }
+
+    </div>
+
   </div>
 
 

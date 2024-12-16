@@ -8,19 +8,27 @@
 <div class="container">
   <!-- Display retrieval results -->
   @if (recommenderService.randomRecommendation()) {
-    <p-panel header="Query song">
+    <div class="d-flex">
       <div>
         <p><strong>Title:</strong> {{ recommenderService.randomRecommendation()?.query_song?.song_title }}</p>
         <p><strong>Artist:</strong> {{ recommenderService.randomRecommendation()?.query_song?.artist }}</p>
         <p><strong>Album:</strong> {{ recommenderService.randomRecommendation()?.query_song?.album_name }}</p>
       </div>
-    </p-panel>
+
+      <div class="ms-auto">
+        @if (recommenderService.queryMetrics()) {
+          <app-query-metrics />
+        }
+      </div>
+    </div>
+
+
 
     <p-panel header="Retrieved songs">
       @if (recommenderService.randomRecommendation()) {
 
         <p-accordion [multiple]="true">
-          @for (song of recommenderService.randomRecommendation()?.result_songs; track song) {
+          @for (song of recommenderService.randomRecommendation()?.result_songs; track song.song_id) {
 
             <app-retrieved-song [song]="song"></app-retrieved-song>
           }
@@ -30,14 +38,6 @@
     </p-panel>
 
   }
-
-  @if (recommenderService.queryMetrics()) {
-    <app-query-metrics />
-  }
-
-  <p-button (onClick)="getQueryMetrics()">
-    Get Metrics
-  </p-button>
 </div>
 
 

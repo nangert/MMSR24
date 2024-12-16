@@ -19,11 +19,12 @@ export class RecommenderApiService {
     return this.http.get<Song[]>(`${this.baseUrl}/songs`);
   }
 
-  getRandomRecommendations(querySongId: string, N: number): Observable<RetrieveResult> {
+  getRandomRecommendations(querySongId: string, N: number, model: string): Observable<RetrieveResult> {
     const url = `${this.baseUrl}/retrieve`;
     const body = {
       query_song_id: querySongId,
-      N: N
+      N: N,
+      model: model
     };
     return this.http.post<RetrieveResult>(url, body);
   }
@@ -32,11 +33,4 @@ export class RecommenderApiService {
     return this.http.post<QueryMetrics>(`${this.baseUrl}/calculate_metrics`, body)
   }
 
-  generateRetrievalResults(N: number): Observable<any> {
-    const url = `${this.baseUrl}/generate_retrieval_results`;
-    const body = {
-      N: N
-    };
-    return this.http.post(url, body);
-  }
 }

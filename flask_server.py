@@ -1,14 +1,14 @@
-﻿import random
+﻿
 import json
 from flask import Flask, request, jsonify
 from flask_cors import CORS  # Import the CORS library
+from numpy.f2py.rules import defmod_rules
+from sympy.strategies.core import switch
+
 from Music4All import Dataset, Song
 from accuracy_metrics import Metrics
 from baseline_system import BaselineRetrievalSystem
 from bert import BertRetrievalSystem
-import numpy as np
-from typing import Dict, List
-
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
@@ -21,8 +21,8 @@ bert_embeddings_path = 'dataset/id_lyrics_bert_mmsr.tsv'
 dataset = Dataset(info_dataset_path, genres_dataset_path, url_dataset_path, metadata_dataset_path, bert_embeddings_path)
 
 # TODO: Add frontend code to give the user the ability to select the retrieval system
-# retrieval_system = BaselineRetrievalSystem(dataset)
-retrieval_system = BertRetrievalSystem(dataset)
+baseline_retrieval_system = BaselineRetrievalSystem(dataset)
+bert_retrieval_system = BertRetrievalSystem(dataset)
 
 
 @app.route('/calculate_metrics', methods=['POST'])
@@ -94,32 +94,30 @@ def retrieve_songs():
         data = request.get_json()
         query_song_id = data.get('query_song_id')
         N = data.get('N', 10)
+        model = data.get('model')
         query_song = next((song for song in dataset.get_all_songs() if song.song_id == query_song_id), None)
         if not query_song:
             return jsonify({"error": "Query song not found"}), 404
 
-        retrieved_songs = retrieval_system.get_retrieval(query_song, N)
+        match model:
+            case 'Baseline':
+                print('baseline')
+                retrieved_songs = baseline_retrieval_system.get_retrieval(query_song, N)
+            case 'TfIdf':
+                print('tfidf')
+                retrieved_songs = bert_retrieval_system.get_retrieval(query_song, N)
+            case 'Bert':
+                print('bert')
+                retrieved_songs = bert_retrieval_system.get_retrieval(query_song, N)
+            case _:
+                print('default')
+                retrieved_songs = bert_retrieval_system.get_retrieval(query_song, N)
+
         response = {
             'query_song': query_song.to_dict(),
             'result_songs': [song.to_dict() for song in retrieved_songs]
         }
         return jsonify(response)
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-@app.route('/generate_retrieval_results', methods=['GET'])
-def generate_retrieval_results():
-    try:
-        data = request.get_json()
-        N = data.get('N', 10)
-        retrieval_results = retrieval_system.generate_retrieval_results(N)
-        retrieval_results_path = 'results/retrieval_results.json'
-        with open(retrieval_results_path, 'w', encoding='utf-8') as f:
-            json.dump(retrieval_results, f, ensure_ascii=False, indent=4)
-
-        return jsonify({"message": f"Retrieval results saved to {retrieval_results_path}"})
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500

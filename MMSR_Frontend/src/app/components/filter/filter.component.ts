@@ -7,6 +7,7 @@ import {InputGroupModule} from "primeng/inputgroup";
 import {InputTextModule} from "primeng/inputtext";
 import {FilterModel} from "../../models/filter.model";
 import {toSignal} from "@angular/core/rxjs-interop";
+import {RadioButtonModule} from "primeng/radiobutton";
 
 @Component({
   selector: 'app-filter',
@@ -15,7 +16,8 @@ import {toSignal} from "@angular/core/rxjs-interop";
     ReactiveFormsModule,
     DropdownModule,
     InputGroupModule,
-    InputTextModule
+    InputTextModule,
+    RadioButtonModule
   ],
   templateUrl: './filter.component.html',
   styleUrl: './filter.component.scss',
@@ -25,9 +27,18 @@ export class FilterComponent implements OnInit{
   private formBuilder = inject(FormBuilder);
   recommenderService = inject(RecommenderService)
 
+  selectedCategory: any = null;
+
+  categories: any[] = [
+    { name: 'Baseline', key: 'Baseline' },
+    { name: 'Text based', key: 'TfIdf' },
+    { name: 'BERT', key: 'Bert' }
+  ];
+
   retrievalForm: FormGroup<RetrieveModel> = this.formBuilder.group({
     songId: '',
-    count: 10
+    count: 10,
+    retrievalSystem: 'B'
   }) as FormGroup<RetrieveModel>;
 
   filterForm: FormGroup<FilterModel> = this.formBuilder.group({
@@ -63,12 +74,14 @@ export class FilterComponent implements OnInit{
 
   ngOnInit(): void {
     this.recommenderService.reloadSongs.next()
+    this.selectedCategory = this.categories[1];
   }
 
   retrieveSongs(): void {
     const model: RetrieveApiModel = {
       songId: this.retrievalForm.controls.songId.value,
-      count: this.retrievalForm.controls.count.value
+      count: this.retrievalForm.controls.count.value,
+      model: this.retrievalForm.controls.retrievalSystem.value.key
     }
 
     if (!model.songId || !model.count) return
