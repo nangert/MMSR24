@@ -23,6 +23,7 @@ class MFCCRetrievalSystem:
         self.df = pd.merge(self.df_bow, self.df_stats, on='id')
         self.dataset = dataset
         self.normalize_features()
+        self.song_dict = {s.song_id: s for s in self.dataset.get_all_songs()}
 
     @staticmethod
     def load_tsv(file_path: str) -> pd.DataFrame:
@@ -56,19 +57,22 @@ class MFCCRetrievalSystem:
             list: A list of the top-k most similar songs.
         """
         query_id = query_song.song_id
-        query_features = self.df[self.df['id'] == query_id].iloc[:, 1:].values
-        if query_features.size == 0:
+        query_row = self.df[self.df['id'] == query_id]
+        if query_row.empty:
             raise ValueError(f"No song found for song ID: {query_id}")
+
+        query_features = query_row.iloc[:, 1:].values
 
         song_features = self.df.iloc[:, 1:].values
         similarities = cosine_similarity(query_features, song_features)[0]
-        similarities_with_songs = []
 
-        for _, song_row in self.df.iterrows():
+        similarities_with_songs = []
+        for idx, song_row in self.df.iterrows():
             if song_row['id'] == query_id:
                 continue
-            similarity = similarities[_]
-            song = next((s for s in self.dataset.get_all_songs() if s.song_id == song_row['id']), None)
+            similarity = similarities[idx]
+            # Retrieve song using the pre-built dictionary
+            song = self.song_dict.get(song_row['id'])
             if song:
                 similarities_with_songs.append((song, similarity))
 

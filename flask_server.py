@@ -25,7 +25,6 @@ bow_path = 'dataset/id_mfcc_bow_mmsr.tsv'
 stats_path = 'dataset/id_mfcc_stats_mmsr.tsv'
 dataset = Dataset(info_dataset_path, genres_dataset_path, url_dataset_path, metadata_dataset_path, bert_embeddings_path)
 
-# TODO: Add frontend code to give the user the ability to select the retrieval system
 baseline_retrieval_system = BaselineRetrievalSystem(dataset)
 bert_retrieval_system = BertRetrievalSystem(dataset)
 mfcc_retrieval_system = MFCCRetrievalSystem(bow_path, stats_path, dataset)
@@ -120,7 +119,6 @@ def retrieve_songs():
             case _:
                 print('default')
                 retrieved_songs = bert_retrieval_system.get_retrieval(query_song, N)
-
 
         response = {
             'query_song': query_song.to_dict(),
