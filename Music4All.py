@@ -3,6 +3,8 @@ import csv
 import ast
 from typing import List, Dict
 import numpy as np
+import pandas as pd
+from sklearn.preprocessing import MinMaxScaler
 
 
 class Song:
@@ -52,7 +54,7 @@ class Dataset:
     Loads and stores song data from TSV files.
     """
 
-    def __init__(self, info_file_path: str, genres_file_path: str, url_dataset_path: str, metadata_dataset_path: str, bert_embeddings_path: str):
+    def __init__(self, info_file_path: str, genres_file_path: str, url_dataset_path: str, metadata_dataset_path: str, bert_embeddings_path: str, resnet_embeddings_path: str):
         """
         Initializes the Dataset by loading song information, genres, and BERT embeddings.
 
@@ -65,9 +67,10 @@ class Dataset:
         """
         self.songs = []
         self.bert_embeddings = {}
-        self.load_dataset(info_file_path, genres_file_path, url_dataset_path, metadata_dataset_path, bert_embeddings_path)
+        self.resnet_embeddings = {}
+        self.load_dataset(info_file_path, genres_file_path, url_dataset_path, metadata_dataset_path, bert_embeddings_path, resnet_embeddings_path)
 
-    def load_dataset(self, info_file_path: str, genres_file_path: str, url_dataset_path: str, metadata_dataset_path: str, bert_embeddings_path: str):
+    def load_dataset(self, info_file_path: str, genres_file_path: str, url_dataset_path: str, metadata_dataset_path: str, bert_embeddings_path: str, resnet_embeddings_path: str):
         # Load genres, URLs, metadata using a unified helper
         genres_dict = self._load_dict_from_tsv(
             file_path=genres_file_path,
@@ -88,18 +91,15 @@ class Dataset:
             value_col='spotify_id'
         )
 
-        # Load BERT embeddings separately due to different format
-        self.bert_embeddings = {}
-        with open(bert_embeddings_path, 'r', encoding='utf-8') as f:
-            header = f.readline()  # Skip header
-            for line in f:
-                parts = line.strip().split('\t')
-                track_id = parts[0]
-                vector_values = list(map(float, parts[1:]))
-                self.bert_embeddings[track_id] = np.array(vector_values, dtype=np.float32)
+        # Load BERT embeddings
+        self.bert_embeddings = self._load_bert_embeddings(bert_embeddings_path)
 
-        # Load main song information
+        # Load and normalize ResNet embeddings
+        self.resnet_embeddings = self._load_resnet_embeddings(resnet_embeddings_path)
+
+        # Load song info
         self.songs = self._load_song_info(info_file_path, genres_dict, url_dict, metadata_dict)
+
 
     @staticmethod
     def _load_dict_from_tsv(file_path: str, key_col: str, value_col: str, transform=None) -> Dict[str, any]:
@@ -125,6 +125,32 @@ class Dataset:
                     val = transform(val)
                 result_dict[key] = val
         return result_dict
+
+    @staticmethod
+    def _load_bert_embeddings(bert_embeddings_path: str) -> Dict[str, np.ndarray]:
+        embeddings = {}
+        with open(bert_embeddings_path, 'r', encoding='utf-8') as f:
+            f.readline()  # Skip header
+            for line in f:
+                parts = line.strip().split('\t')
+                track_id = parts[0]
+                vector_values = list(map(float, parts[1:]))
+                embeddings[track_id] = np.array(vector_values, dtype=np.float32)
+        return embeddings
+
+    @staticmethod
+    def _load_resnet_embeddings(resnet_embeddings_path: str) -> Dict[str, np.ndarray]:
+        df = pd.read_csv(resnet_embeddings_path, sep='\t')
+        feature_cols = df.columns[1:]
+        scaler = MinMaxScaler()
+        df[feature_cols] = scaler.fit_transform(df[feature_cols])
+
+        embeddings = {}
+        for _, row in df.iterrows():
+            track_id = row['id']
+            vector_values = row[feature_cols].values.astype(np.float32)
+            embeddings[track_id] = vector_values
+        return embeddings
 
     @staticmethod
     def _load_song_info(info_file_path: str, genres_dict: Dict[str, List[str]], url_dict: Dict[str, str], metadata_dict: Dict[str, str]) -> List[Song]:
@@ -217,5 +243,4 @@ class Dataset:
                 total_relevant += 1
 
         return total_relevant
-
 

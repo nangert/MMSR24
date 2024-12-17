@@ -33,7 +33,9 @@ export class FilterComponent implements OnInit{
     { name: 'Baseline', key: 'Baseline' },
     { name: 'Text based', key: 'TfIdf' },
     { name: 'BERT', key: 'Bert' },
-    { name: 'MFCC', key: 'MFCC' }
+    { name: 'MFCC', key: 'MFCC' },
+    { name: 'ResNet', key: 'ResNet' },
+    { name: 'VGG', key: 'VGG' }
   ];
 
   retrievalForm: FormGroup<RetrieveModel> = this.formBuilder.group({
