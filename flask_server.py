@@ -1,15 +1,13 @@
-﻿
-import json
+﻿import json
 from flask import Flask, request, jsonify
 from flask_cors import CORS  # Import the CORS library
-from numpy.f2py.rules import defmod_rules
-from sympy.strategies.core import switch
 
 from Music4All import Dataset, Song
 from accuracy_metrics import Metrics
 from baseline_system import BaselineRetrievalSystem
 from bert import BertRetrievalSystem
 from mfcc_retrieval import MFCCRetrievalSystem
+from tfidf_retrieval import TFIDFRetrievalSystem  # Import the TF-IDF retrieval system
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
@@ -20,23 +18,80 @@ genres_dataset_path = 'dataset/id_genres_mmsr.tsv'     # Path to your genres TSV
 url_dataset_path = 'dataset/id_url_mmsr.tsv'
 metadata_dataset_path = 'dataset/id_metadata_mmsr.tsv'
 bert_embeddings_path = 'dataset/id_lyrics_bert_mmsr.tsv'
+tfidf_file_path = 'dataset/id_lyrics_tf-idf_mmsr.tsv'
+relevance_labels_path = 'dataset/relevance_labels.tsv'
 
-bow_path = 'dataset/id_mfcc_bow_mmsr.tsv'
-stats_path = 'dataset/id_mfcc_stats_mmsr.tsv'
+# Initialize dataset and retrieval systems
 dataset = Dataset(info_dataset_path, genres_dataset_path, url_dataset_path, metadata_dataset_path, bert_embeddings_path)
-
-# TODO: Add frontend code to give the user the ability to select the retrieval system
 baseline_retrieval_system = BaselineRetrievalSystem(dataset)
 bert_retrieval_system = BertRetrievalSystem(dataset)
-mfcc_retrieval_system = MFCCRetrievalSystem(bow_path, stats_path, dataset)
+mfcc_retrieval_system = MFCCRetrievalSystem('dataset/id_mfcc_bow_mmsr.tsv', 'dataset/id_mfcc_stats_mmsr.tsv', dataset)
+tfidf_retrieval_system = TFIDFRetrievalSystem(tfidf_file_path, relevance_labels_path)  # TF-IDF retrieval system
+
+
+@app.route('/songs', methods=['GET'])
+def get_songs():
+    try:
+        # Get list of Song objects
+        songs = dataset.get_all_songs()
+        songs_dict = [song.to_dict() for song in songs]
+        return jsonify(songs_dict)  # Return the list of song dictionaries
+    except Exception as e:
+        print(f"Error in /songs: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/retrieve', methods=['POST'])
+def retrieve_songs():
+    try:
+        data = request.get_json()
+        query_song_id = data.get('query_song_id')
+        N = data.get('N', 10)
+        model = data.get('model')
+
+        # Get the query song object
+        query_song = next((song for song in dataset.get_all_songs() if song.song_id == query_song_id), None)
+        if not query_song:
+            return jsonify({"error": "Query song not found"}), 404
+
+        if model == 'Baseline':
+            print('Baseline retrieval...')
+            retrieved_songs = baseline_retrieval_system.get_retrieval(query_song, N)
+        elif model == 'TfIdf':
+            print('TF-IDF retrieval...')
+            retrieved_song_ids = tfidf_retrieval_system.retrieve(query_song_id, N)
+            retrieved_songs = [song for song in dataset.get_all_songs() if song.song_id in retrieved_song_ids]
+            metrics = tfidf_retrieval_system.calculate_metrics(query_song_id, N)
+        elif model == 'Bert':
+            print('BERT retrieval...')
+            retrieved_songs = bert_retrieval_system.get_retrieval(query_song, N)
+        elif model == 'MFCC':
+            print('MFCC retrieval...')
+            retrieved_songs = mfcc_retrieval_system.recommend_similar_songs(query_song, N)
+        else:
+            return jsonify({"error": "Invalid model specified"}), 400
+
+        response = {
+            'query_song': query_song.to_dict(),
+            'result_songs': [song.to_dict() for song in retrieved_songs]
+        }
+
+        # Add metrics to response if using TF-IDF
+        if model == 'TfIdf':
+            response['metrics'] = metrics
+
+        return jsonify(response)
+
+    except Exception as e:
+        print(f"Error in /retrieve: {e}")
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route('/calculate_metrics', methods=['POST'])
 def calculate_metrics():
-
     try:
         # Parse the request body
         data = request.get_json()
-
         query_song = data.get('query_song', '')
         result_songs = data.get('result_songs', [])
         k = data.get('k', 10)
@@ -76,59 +131,7 @@ def calculate_metrics():
         return jsonify(result)
 
     except Exception as e:
-        print(e)
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/songs', methods=['GET'])
-def get_songs():
-    try:
-        # Get list of Song objects
-        songs = dataset.get_all_songs()
-
-        # Convert each Song object to a dictionary
-        songs_dict = [song.to_dict() for song in songs]
-
-        return jsonify(songs_dict)  # Return the list of song dictionaries
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/retrieve', methods=['POST'])
-def retrieve_songs():
-    try:
-        data = request.get_json()
-        query_song_id = data.get('query_song_id')
-        N = data.get('N', 10)
-        model = data.get('model')
-        query_song = next((song for song in dataset.get_all_songs() if song.song_id == query_song_id), None)
-        if not query_song:
-            return jsonify({"error": "Query song not found"}), 404
-
-        match model:
-            case 'Baseline':
-                print('baseline')
-                retrieved_songs = baseline_retrieval_system.get_retrieval(query_song, N)
-            case 'TfIdf':
-                print('tfidf')
-                retrieved_songs = bert_retrieval_system.get_retrieval(query_song, N)
-            case 'Bert':
-                print('bert')
-                retrieved_songs = bert_retrieval_system.get_retrieval(query_song, N)
-            case 'MFCC':
-                print('mfcc')
-                retrieved_songs = mfcc_retrieval_system.recommend_similar_songs(query_song, N)
-            case _:
-                print('default')
-                retrieved_songs = bert_retrieval_system.get_retrieval(query_song, N)
-
-
-        response = {
-            'query_song': query_song.to_dict(),
-            'result_songs': [song.to_dict() for song in retrieved_songs]
-        }
-        return jsonify(response)
-
-    except Exception as e:
+        print(f"Error in /calculate_metrics: {e}")
         return jsonify({"error": str(e)}), 500
 
 
