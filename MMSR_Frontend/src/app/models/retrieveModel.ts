@@ -4,6 +4,7 @@ export interface RetrieveModel {
   songId: FormControl<string>,
   count: FormControl<number>,
   retrievalSystem: FormControl<any>,
+  relevanceSystem: FormControl<any>,
 }
 
 export interface RetrieveApiModel {

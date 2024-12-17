@@ -46,6 +46,7 @@ def calculate_metrics():
         query_song = data.get('query_song', '')
         result_songs = data.get('result_songs', [])
         k = data.get('k', 10)
+        relevance_measure = data.get('relevanceSystem', '')
 
         if not query_song or not result_songs:
             return jsonify({"error": "Invalid or missing 'query_song' or 'result_songs'"}), 400
@@ -64,12 +65,22 @@ def calculate_metrics():
         result_songs_filtered_genre = []
         for song in result_songs:
             song_id = song.get('song_id', '')
-            top_genres = top_genre_weights.get(song_id, set())
-            if top_genres:
-                result_songs_filtered_genre.append({
-                    "song_id": song_id,
-                    "genres": list(top_genres)
-                })
+            if relevance_measure == 'Top':
+                top_genres = top_genre_weights.get(song_id, set())
+                if top_genres:
+                    result_songs_filtered_genre.append({
+                        "song_id": song_id,
+                        "genres": list(top_genres)
+                    })
+            else:
+                song_genres = set(song.get('genres', []))
+                query_genres = set(query_genres)
+                overlapping_genres = song_genres & query_genres
+                if overlapping_genres:
+                    result_songs_filtered_genre.append({
+                        "song_id": song_id,
+                        "genres": list(overlapping_genres)
+                    })
 
         # Determine total relevant items
         total_relevant = dataset.get_total_relevant(query_song, top_genre_weights)

@@ -68,6 +68,24 @@
 
     </div>
 
+    <div class="flex flex-column gap-3">
+      @for (measure of relevance; track measure.key) {
+        <div class="field-checkbox">
+          <p-radioButton
+            [inputId]="measure.key"
+            name="relevance"
+            [value]="measure"
+            [(ngModel)]="selectedRelevance"
+            [formControl]="retrievalForm.controls.relevanceSystem"
+          />
+          <label [for]="measure.key" class="ml-2">
+            {{ measure.name }}
+          </label>
+        </div>
+      }
+
+    </div>
+
   </div>
 
 

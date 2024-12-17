@@ -11,6 +11,8 @@ import {QueryMetrics, RetrieveApiModel} from '../models/retrieveModel';
 export class RecommenderService {
   private apiService = inject(RecommenderApiService)
 
+  relevanceMeasure: any
+
   reloadSongs: Subject<void> = new Subject<void>();
   reloadSongs$ = this.reloadSongs.asObservable();
   isLoadingSongs: WritableSignal<boolean> = signal(false)
@@ -42,6 +44,9 @@ export class RecommenderService {
   queryMetrics$: Observable<QueryMetrics> = this.randomRecommendation$.pipe(
     tap(() => this.isLoadingQueryMetrics.set(true)),
     switchMap((body) => {
+      if (this.relevanceMeasure) {
+        body.relevanceSystem = this.relevanceMeasure
+      }
       this.isLoadingQueryMetrics.set(false)
       return this.apiService.getQueryMetrics(body)
     })

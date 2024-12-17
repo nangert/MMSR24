@@ -28,6 +28,7 @@ export class FilterComponent implements OnInit{
   recommenderService = inject(RecommenderService)
 
   selectedCategory: any = null;
+  selectedRelevance: any = null;
 
   categories: any[] = [
     { name: 'Baseline', key: 'Baseline' },
@@ -38,10 +39,16 @@ export class FilterComponent implements OnInit{
     { name: 'VGG19', key: 'VGG19' }
   ];
 
+  relevance: any[] = [
+    { name: 'Top genre weights', key: 'Top' },
+    { name: 'Any genre match', key: 'Any' }
+  ];
+
   retrievalForm: FormGroup<RetrieveModel> = this.formBuilder.group({
     songId: '',
     count: 10,
-    retrievalSystem: 'B'
+    retrievalSystem: 'Baseline',
+    relevanceSystem: 'Top'
   }) as FormGroup<RetrieveModel>;
 
   filterForm: FormGroup<FilterModel> = this.formBuilder.group({
@@ -77,7 +84,8 @@ export class FilterComponent implements OnInit{
 
   ngOnInit(): void {
     this.recommenderService.reloadSongs.next()
-    this.selectedCategory = this.categories[1];
+    this.selectedCategory = this.categories[0];
+    this.selectedRelevance = this.relevance[0];
   }
 
   retrieveSongs(): void {
@@ -86,6 +94,8 @@ export class FilterComponent implements OnInit{
       count: this.retrievalForm.controls.count.value,
       model: this.retrievalForm.controls.retrievalSystem.value.key
     }
+
+    this.recommenderService.relevanceMeasure = this.retrievalForm.controls.relevanceSystem.value.key
 
     if (!model.songId || !model.count) return
 
