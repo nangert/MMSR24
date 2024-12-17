@@ -2,7 +2,7 @@ import os
 import pandas as pd
 import numpy as np
 from typing import List, Dict
-
+from accuracy_metrics import Metrics
 
 class TFIDFRetrievalSystem:
     def __init__(self, tfidf_file_path: str, relevance_labels_path: str):
@@ -42,17 +42,10 @@ class TFIDFRetrievalSystem:
 
     def calculate_metrics(self, query_id: str, N: int) -> Dict[str, float]:
         """Calculate MRR, Precision@k, Recall@k, and NDCG@k."""
+        metrics = Metrics()
         retrieved = self.retrieve(query_id, N)
         relevant = set(self.relevance_data.get(query_id, []))
+        result_songs = [{'song_id': song_id} for song_id in retrieved]
 
-        mrr = 0
-        precision = len([s for s in retrieved if s in relevant]) / N
-        recall = len([s for s in retrieved if s in relevant]) / len(relevant) if relevant else 0
-        ndcg = 1 if retrieved[0] in relevant else 0  # Simplified NDCG@1
-
-        for i, song_id in enumerate(retrieved):
-            if song_id in relevant:
-                mrr = 1 / (i + 1)
-                break
-
-        return {"MRR": mrr, "Precision@k": precision, "Recall@k": recall, "NDCG@k": ndcg}
+        result = metrics.calculate_metrics({'song_id': query_id}, result_songs, len(relevant), relevant, N)
+        return result

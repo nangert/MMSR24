@@ -217,5 +217,3 @@ class Dataset:
                 total_relevant += 1
 
         return total_relevant
-
-
