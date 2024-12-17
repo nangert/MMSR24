@@ -4,6 +4,9 @@ import {Song} from "../../models/retrieveResult";
 import {DomSanitizer, SafeResourceUrl} from "@angular/platform-browser";
 import {NgxLiteYoutubeModule} from "ngx-lite-video";
 import {Button} from "primeng/button";
+import {ChipModule} from "primeng/chip";
+import {NgClass} from "@angular/common";
+import {TagModule} from "primeng/tag";
 
 @Component({
   selector: 'app-retrieved-song',
@@ -11,13 +14,17 @@ import {Button} from "primeng/button";
   imports: [
     AccordionModule,
     NgxLiteYoutubeModule,
-    Button
+    Button,
+    ChipModule,
+    NgClass,
+    TagModule
   ],
   templateUrl: './retrieved-song.component.html',
   styleUrl: './retrieved-song.component.scss',
 })
 export class RetrievedSongComponent {
   @Input() song!: Song;
+  @Input() querySong!: Song
 
   sanitizer = inject(DomSanitizer)
 
@@ -41,6 +48,15 @@ export class RetrievedSongComponent {
     const match = url.match(/(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?v=([^&]+)/)
       || url.match(/(?:https?:\/\/)?(?:www\.)?youtu\.be\/([^?&]+)/);
     return match ? match[1] : null;
+  }
+
+  isGenreMatching(genre: string): boolean {
+    if (this.querySong.genres.includes(genre)) {
+      console.log(genre + ' in  ' + this.querySong.genres)
+      return true
+    }
+
+    return false
   }
 
 }

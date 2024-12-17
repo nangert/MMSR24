@@ -13,6 +13,11 @@
         <p><strong>Title:</strong> {{ recommenderService.randomRecommendation()?.query_song?.song_title }}</p>
         <p><strong>Artist:</strong> {{ recommenderService.randomRecommendation()?.query_song?.artist }}</p>
         <p><strong>Album:</strong> {{ recommenderService.randomRecommendation()?.query_song?.album_name }}</p>
+        @for (genre of recommenderService.randomRecommendation()?.query_song?.genres; track genre) {
+          <p-tag [value]="genre">
+
+          </p-tag>
+        }
       </div>
 
       <div class="ms-auto">
@@ -30,7 +35,7 @@
         <p-accordion [multiple]="true">
           @for (song of recommenderService.randomRecommendation()?.result_songs; track song.song_id) {
 
-            <app-retrieved-song [song]="song"></app-retrieved-song>
+            <app-retrieved-song [song]="song" [querySong]="recommenderService.randomRecommendation()?.query_song!"></app-retrieved-song>
           }
         </p-accordion>
 

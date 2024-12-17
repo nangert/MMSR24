@@ -9,7 +9,7 @@ class MFCCRetrievalSystem:
     A retrieval system that uses MFCC features for similarity-based retrieval.
     """
 
-    def __init__(self, dataset, similarity_cache_path: str = 'similarities.pkl'):
+    def __init__(self, dataset, similarity_cache_path: str = 'precomputed/mfcc_similarities.pkl'):
         """
         Initializes the retrieval system using the dataset's preprocessed MFCC embeddings.
 
@@ -75,22 +75,3 @@ class MFCCRetrievalSystem:
         similarities_with_songs.sort(key=lambda x: x[1], reverse=True)
 
         return [item[0] for item in similarities_with_songs[:k]]
-
-    def generate_retrieval_results(self, N: int) -> dict:
-        """
-        Generates retrieval results for all songs in the dataset.
-
-        Args:
-            N (int): The number of songs to retrieve for each query.
-
-        Returns:
-            dict: A dictionary of retrieval results.
-        """
-        retrieval_results = {}
-        for query_song in self.song_dict.values():
-            retrieved_songs = self.recommend_similar_songs(query_song, N)
-            retrieval_results[query_song.song_id] = {
-                'query': query_song.to_dict(),
-                'retrieved': [song.to_dict() for song in retrieved_songs]
-            }
-        return retrieval_results

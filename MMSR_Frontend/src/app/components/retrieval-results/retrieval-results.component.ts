@@ -5,6 +5,8 @@ import {PanelModule} from "primeng/panel";
 import {RetrievedSongComponent} from "../retrieved-song/retrieved-song.component";
 import {Button} from "primeng/button";
 import {QueryMetricsComponent} from "../query-metrics/query-metrics.component";
+import {ChipModule} from "primeng/chip";
+import {TagModule} from "primeng/tag";
 
 @Component({
   selector: 'app-retrieval-results',
@@ -13,7 +15,9 @@ import {QueryMetricsComponent} from "../query-metrics/query-metrics.component";
     PanelModule,
     RetrievedSongComponent,
     Button,
-    QueryMetricsComponent
+    QueryMetricsComponent,
+    ChipModule,
+    TagModule
   ],
   templateUrl: './retrieval-results.component.html',
   styleUrl: './retrieval-results.component.scss',
