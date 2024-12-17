@@ -2,4 +2,5 @@
 
 /dataset/
 
-/precomputed/
+!/precomputed/
+/precomputed/*
