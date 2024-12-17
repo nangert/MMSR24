@@ -54,7 +54,9 @@ class Dataset:
     Loads and stores song data from TSV files.
     """
 
-    def __init__(self, info_file_path: str, genres_file_path: str, url_dataset_path: str, metadata_dataset_path: str, bert_embeddings_path: str, resnet_embeddings_path: str):
+    def __init__(self, info_file_path: str, genres_file_path: str, url_dataset_path: str,
+                 metadata_dataset_path: str, bert_embeddings_path: str, resnet_embeddings_path: str, vgg19_embeddings_path: str,
+                 mfcc_bow_path: str, mfcc_stats_path: str):
         """
         Initializes the Dataset by loading song information, genres, and BERT embeddings.
 
@@ -64,40 +66,29 @@ class Dataset:
             url_dataset_path (str): Path to the TSV file containing song URLs.
             metadata_dataset_path (str): Path to the TSV file containing song metadata (e.g., Spotify IDs).
             bert_embeddings_path (str): Path to the TSV file containing precomputed BERT embeddings.
+            resnet_embeddings_path (str): Path to the TSV file containing precomputed ResNet embeddings.
+            vgg19_embeddings_path (str): Path to the TSV file containing precomputed VGG19 embeddings.
         """
         self.songs = []
         self.bert_embeddings = {}
         self.resnet_embeddings = {}
-        self.load_dataset(info_file_path, genres_file_path, url_dataset_path, metadata_dataset_path, bert_embeddings_path, resnet_embeddings_path)
+        self.vgg19_embeddings = {}
+        self.load_dataset(info_file_path, genres_file_path, url_dataset_path, metadata_dataset_path,
+                          bert_embeddings_path, resnet_embeddings_path, vgg19_embeddings_path,
+                          mfcc_bow_path, mfcc_stats_path)
 
-    def load_dataset(self, info_file_path: str, genres_file_path: str, url_dataset_path: str, metadata_dataset_path: str, bert_embeddings_path: str, resnet_embeddings_path: str):
-        # Load genres, URLs, metadata using a unified helper
-        genres_dict = self._load_dict_from_tsv(
-            file_path=genres_file_path,
-            key_col='id',
-            value_col='genre',
-            transform=lambda val: ast.literal_eval(val)
-        )
+    def load_dataset(self, info_file_path: str, genres_file_path: str, url_dataset_path: str,
+                     metadata_dataset_path: str, bert_embeddings_path: str, resnet_embeddings_path: str,
+                     vgg19_embeddings_path: str, mfcc_bow_path: str, mfcc_stats_path: str):
+        genres_dict = self._load_dict_from_tsv(genres_file_path, 'id', 'genre', transform=lambda val: eval(val))
+        url_dict = self._load_dict_from_tsv(url_dataset_path, 'id', 'url')
+        metadata_dict = self._load_dict_from_tsv(metadata_dataset_path, 'id', 'spotify_id')
 
-        url_dict = self._load_dict_from_tsv(
-            file_path=url_dataset_path,
-            key_col='id',
-            value_col='url'
-        )
+        self.bert_embeddings = self._load_and_normalize_embeddings(bert_embeddings_path)
+        self.resnet_embeddings = self._load_and_normalize_embeddings(resnet_embeddings_path)
+        self.vgg19_embeddings = self._load_and_normalize_embeddings(vgg19_embeddings_path)
+        self.mfcc_embeddings = self._load_and_normalize_mfcc(mfcc_bow_path, mfcc_stats_path)
 
-        metadata_dict = self._load_dict_from_tsv(
-            file_path=metadata_dataset_path,
-            key_col='id',
-            value_col='spotify_id'
-        )
-
-        # Load BERT embeddings
-        self.bert_embeddings = self._load_bert_embeddings(bert_embeddings_path)
-
-        # Load and normalize ResNet embeddings
-        self.resnet_embeddings = self._load_resnet_embeddings(resnet_embeddings_path)
-
-        # Load song info
         self.songs = self._load_song_info(info_file_path, genres_dict, url_dict, metadata_dict)
 
 
@@ -127,30 +118,25 @@ class Dataset:
         return result_dict
 
     @staticmethod
-    def _load_bert_embeddings(bert_embeddings_path: str) -> Dict[str, np.ndarray]:
-        embeddings = {}
-        with open(bert_embeddings_path, 'r', encoding='utf-8') as f:
-            f.readline()  # Skip header
-            for line in f:
-                parts = line.strip().split('\t')
-                track_id = parts[0]
-                vector_values = list(map(float, parts[1:]))
-                embeddings[track_id] = np.array(vector_values, dtype=np.float32)
-        return embeddings
+    def _load_and_normalize_embeddings(file_path: str) -> Dict[str, np.ndarray]:
+        df = pd.read_csv(file_path, sep='\t')
+        scaler = MinMaxScaler()
+        feature_cols = df.columns[1:]  # Exclude 'id'
+        df[feature_cols] = scaler.fit_transform(df[feature_cols])
+        return {row['id']: row[feature_cols].values.astype(np.float32) for _, row in df.iterrows()}
 
     @staticmethod
-    def _load_resnet_embeddings(resnet_embeddings_path: str) -> Dict[str, np.ndarray]:
-        df = pd.read_csv(resnet_embeddings_path, sep='\t')
-        feature_cols = df.columns[1:]
-        scaler = MinMaxScaler()
-        df[feature_cols] = scaler.fit_transform(df[feature_cols])
+    def _load_and_normalize_mfcc(bow_path: str, stats_path: str) -> Dict[str, np.ndarray]:
+        df_bow = pd.read_csv(bow_path, sep='\t')
+        df_stats = pd.read_csv(stats_path, sep='\t')
+        merged_df = pd.merge(df_bow, df_stats, on='id')
 
-        embeddings = {}
-        for _, row in df.iterrows():
-            track_id = row['id']
-            vector_values = row[feature_cols].values.astype(np.float32)
-            embeddings[track_id] = vector_values
-        return embeddings
+        scaler = MinMaxScaler()
+        feature_cols = merged_df.columns[1:]
+        merged_df[feature_cols] = scaler.fit_transform(merged_df[feature_cols])
+
+        return {row['id']: row[feature_cols].values.astype(np.float32) for _, row in merged_df.iterrows()}
+
 
     @staticmethod
     def _load_song_info(info_file_path: str, genres_dict: Dict[str, List[str]], url_dict: Dict[str, str], metadata_dict: Dict[str, str]) -> List[Song]:

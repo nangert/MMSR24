@@ -8,8 +8,7 @@ from sympy.strategies.core import switch
 from Music4All import Dataset, Song
 from accuracy_metrics import Metrics
 from baseline_system import BaselineRetrievalSystem
-from bert import BertRetrievalSystem
-from resnet import ResNetRetrievalSystem
+from embedding_system import EmbeddingRetrievalSystem
 from mfcc_retrieval import MFCCRetrievalSystem
 
 app = Flask(__name__)
@@ -22,15 +21,20 @@ url_dataset_path = 'dataset/id_url_mmsr.tsv'
 metadata_dataset_path = 'dataset/id_metadata_mmsr.tsv'
 bert_embeddings_path = 'dataset/id_lyrics_bert_mmsr.tsv'
 resnet_embeddings_path = 'dataset/id_resnet_mmsr.tsv'
+vgg19_embeddings_path = 'dataset/id_vgg19_mmsr.tsv'
 
 bow_path = 'dataset/id_mfcc_bow_mmsr.tsv'
 stats_path = 'dataset/id_mfcc_stats_mmsr.tsv'
-dataset = Dataset(info_dataset_path, genres_dataset_path, url_dataset_path, metadata_dataset_path, bert_embeddings_path, resnet_embeddings_path)
+
+dataset = Dataset(info_dataset_path, genres_dataset_path, url_dataset_path,
+                  metadata_dataset_path, bert_embeddings_path, resnet_embeddings_path, vgg19_embeddings_path, bow_path, stats_path)
+
+bert_retrieval_system = EmbeddingRetrievalSystem(dataset, dataset.bert_embeddings, "Bert")
+resnet_retrieval_system = EmbeddingRetrievalSystem(dataset, dataset.resnet_embeddings, "ResNet")
+vgg19_retrieval_system = EmbeddingRetrievalSystem(dataset, dataset.vgg19_embeddings, "VGG19")
 
 baseline_retrieval_system = BaselineRetrievalSystem(dataset)
-bert_retrieval_system = BertRetrievalSystem(dataset)
-resnet_retrieval_system = ResNetRetrievalSystem(dataset)
-mfcc_retrieval_system = MFCCRetrievalSystem(bow_path, stats_path, dataset)
+mfcc_retrieval_system = MFCCRetrievalSystem(dataset)
 
 @app.route('/calculate_metrics', methods=['POST'])
 def calculate_metrics():
@@ -122,6 +126,9 @@ def retrieve_songs():
             case 'ResNet':
                 print('resnet')
                 retrieved_songs = resnet_retrieval_system.get_retrieval(query_song, N)
+            case 'VGG19':
+                print('vgg19')
+                retrieved_songs = vgg19_retrieval_system.get_retrieval(query_song, N)
             case _:
                 print('default')
                 retrieved_songs = bert_retrieval_system.get_retrieval(query_song, N)
