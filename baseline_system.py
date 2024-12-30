@@ -49,7 +49,7 @@ class BaselineRetrievalSystem:
         """
         retrieval_results: Dict[str, Dict[str, any]] = {}
         for query_song in self.dataset.get_all_songs():
-            retrieved_songs = self.get_random_retrieval(query_song, N)
+            retrieved_songs = self.get_retrieval(query_song, N)
             retrieval_results[query_song.song_id] = {
                 'query': query_song.to_dict(),
                 'retrieved': [song.to_dict() for song in retrieved_songs]
@@ -60,6 +60,7 @@ class BaselineRetrievalSystem:
 def main():
     """
     Main function to test the baseline retrieval system.
+    """
     """
     # Parameters
     info_dataset_path = 'dataset/id_information_mmsr.tsv'  # Path to your song information TSV file
@@ -81,6 +82,7 @@ def main():
         json.dump(retrieval_results, f, ensure_ascii=False, indent=4)
 
     print(f"Retrieval results saved to {retrieval_results_path}")
+    """
 
 
 if __name__ == '__main__':

@@ -1,4 +1,4 @@
-# embedding_retrieval_system.py
+# embedding_system.py
 import numpy as np
 from typing import List, Dict
 from Music4All import Dataset, Song
