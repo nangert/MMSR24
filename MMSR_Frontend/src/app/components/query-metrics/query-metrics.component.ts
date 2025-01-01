@@ -1,6 +1,8 @@
-import {Component, inject} from '@angular/core';
+import {Component, inject, Input} from '@angular/core';
 import {PanelModule} from "primeng/panel";
 import {RecommenderService} from "../../services/recommender.service";
+import {MetricsService} from "../../services/metrics.service";
+import {QueryMetrics} from "../../models/retrieveModel";
 
 @Component({
   selector: 'app-query-metrics',
@@ -12,6 +14,6 @@ import {RecommenderService} from "../../services/recommender.service";
   styleUrl: './query-metrics.component.scss'
 })
 export class QueryMetricsComponent {
-  recommenderService = inject(RecommenderService)
+  @Input() queryMetrics!: QueryMetrics
 
 }

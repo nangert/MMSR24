@@ -2,6 +2,7 @@
 import json
 from flask import Flask, request, jsonify
 from flask_cors import CORS  # Import the CORS library
+from numpy import number
 from numpy.f2py.rules import defmod_rules
 from sympy.strategies.core import switch
 
@@ -10,6 +11,8 @@ from accuracy_metrics import Metrics
 from baseline_system import BaselineRetrievalSystem
 from embedding_system import EmbeddingRetrievalSystem
 from mfcc_retrieval import MFCCRetrievalSystem
+from flask_server_utilities import get_query_data
+from tfidf_retrieval import TFIDFRetrievalSystem
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
@@ -22,6 +25,7 @@ metadata_dataset_path = 'dataset/id_metadata_mmsr.tsv'
 bert_embeddings_path = 'dataset/id_lyrics_bert_mmsr.tsv'
 resnet_embeddings_path = 'dataset/id_resnet_mmsr.tsv'
 vgg19_embeddings_path = 'dataset/id_vgg19_mmsr.tsv'
+tfidf_embeddings_path = 'dataset/id_lyrics_tf-idf_mmsr.tsv'
 
 bow_path = 'dataset/id_mfcc_bow_mmsr.tsv'
 stats_path = 'dataset/id_mfcc_stats_mmsr.tsv'
@@ -35,6 +39,7 @@ vgg19_retrieval_system = EmbeddingRetrievalSystem(dataset, dataset.vgg19_embeddi
 
 baseline_retrieval_system = BaselineRetrievalSystem(dataset)
 mfcc_retrieval_system = MFCCRetrievalSystem(dataset)
+tfidf_retrieval_system = TFIDFRetrievalSystem(dataset, tfidf_embeddings_path)
 
 @app.route('/calculate_metrics', methods=['POST'])
 def calculate_metrics():
@@ -110,48 +115,89 @@ def get_songs():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@app.route('/retrieve', methods=['POST'])
-def retrieve_songs():
-    try:
-        data = request.get_json()
-        query_song_id = data.get('query_song_id')
-        N = data.get('N', 10)
-        model = data.get('model')
-        query_song = next((song for song in dataset.get_all_songs() if song.song_id == query_song_id), None)
-        if not query_song:
-            return jsonify({"error": "Query song not found"}), 404
+@app.route('/retrieve/baseline', methods=['POST'])
+def retrieve_baseline():
+    query_song, n = get_query_data(request.get_json(), dataset)
 
-        match model:
-            case 'Baseline':
-                print('baseline')
-                retrieved_songs = baseline_retrieval_system.get_retrieval(query_song, N)
-            case 'TfIdf':
-                print('tfidf')
-                retrieved_songs = bert_retrieval_system.get_retrieval(query_song, N)
-            case 'Bert':
-                print('bert')
-                retrieved_songs = bert_retrieval_system.get_retrieval(query_song, N)
-            case 'MFCC':
-                print('mfcc')
-                retrieved_songs = mfcc_retrieval_system.recommend_similar_songs(query_song, N)
-            case 'ResNet':
-                print('resnet')
-                retrieved_songs = resnet_retrieval_system.get_retrieval(query_song, N)
-            case 'VGG19':
-                print('vgg19')
-                retrieved_songs = vgg19_retrieval_system.get_retrieval(query_song, N)
-            case _:
-                print('default')
-                retrieved_songs = bert_retrieval_system.get_retrieval(query_song, N)
+    if not query_song:
+        return jsonify({"error": "Query song not found"}), 404
 
-        response = {
-            'query_song': query_song.to_dict(),
-            'result_songs': [song.to_dict() for song in retrieved_songs]
-        }
-        return jsonify(response)
+    return retrieve_songs(query_song, n, model='Baseline')
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+@app.route('/retrieve/tfidf', methods=['POST'])
+def retrieve_tfidf():
+    query_song, n = get_query_data(request.get_json(), dataset)
+
+    if not query_song:
+        return jsonify({"error": "Query song not found"}), 404
+
+    return retrieve_songs(query_song, n, model='TfIdf')
+
+@app.route('/retrieve/bert', methods=['POST'])
+def retrieve_bert():
+    query_song, n = get_query_data(request.get_json(), dataset)
+
+    if not query_song:
+        return jsonify({"error": "Query song not found"}), 404
+
+    return retrieve_songs(query_song, n, model='Bert')
+
+@app.route('/retrieve/mfcc', methods=['POST'])
+def retrieve_mfcc():
+    query_song, n = get_query_data(request.get_json(), dataset)
+
+    if not query_song:
+        return jsonify({"error": "Query song not found"}), 404
+
+    return retrieve_songs(query_song, n, model='MFCC')
+
+@app.route('/retrieve/resnet', methods=['POST'])
+def retrieve_resnet():
+    query_song, n = get_query_data(request.get_json(), dataset)
+
+    if not query_song:
+        return jsonify({"error": "Query song not found"}), 404
+
+    return retrieve_songs(query_song, n, model='ResNet')
+
+@app.route('/retrieve/vgg19', methods=['POST'])
+def retrieve_vgg19():
+    query_song, n = get_query_data(request.get_json(), dataset)
+
+    if not query_song:
+        return jsonify({"error": "Query song not found"}), 404
+
+    return retrieve_songs(query_song, n, model='VGG19')
+
+def retrieve_songs(query_song: Song, n: number, model: str):
+    match model:
+        case 'Baseline':
+            print('baseline')
+            retrieved_songs = baseline_retrieval_system.get_retrieval(query_song, n)
+        case 'TfIdf':
+            print('tfidf')
+            retrieved_songs = tfidf_retrieval_system.retrieve(query_song.song_id, n)
+        case 'Bert':
+            print('bert')
+            retrieved_songs = bert_retrieval_system.get_retrieval(query_song, n)
+        case 'MFCC':
+            print('mfcc')
+            retrieved_songs = mfcc_retrieval_system.recommend_similar_songs(query_song, n)
+        case 'ResNet':
+            print('resnet')
+            retrieved_songs = resnet_retrieval_system.get_retrieval(query_song, n)
+        case 'VGG19':
+            print('vgg19')
+            retrieved_songs = vgg19_retrieval_system.get_retrieval(query_song, n)
+        case _:
+            print('default')
+            retrieved_songs = bert_retrieval_system.get_retrieval(query_song, n)
+
+    response = {
+        'query_song': query_song.to_dict(),
+        'result_songs': [song.to_dict() for song in retrieved_songs]
+    }
+    return jsonify(response)
 
 
 @app.route('/health', methods=['GET'])

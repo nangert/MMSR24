@@ -7,6 +7,9 @@ import {Button} from "primeng/button";
 import {QueryMetricsComponent} from "../query-metrics/query-metrics.component";
 import {ChipModule} from "primeng/chip";
 import {TagModule} from "primeng/tag";
+import {DataService} from "../../services/data.service";
+import {MetricsService} from "../../services/metrics.service";
+import {RetrievalResultModelComponent} from "../retrieval-result-model/retrieval-result-model.component";
 
 @Component({
   selector: 'app-retrieval-results',
@@ -17,7 +20,8 @@ import {TagModule} from "primeng/tag";
     Button,
     QueryMetricsComponent,
     ChipModule,
-    TagModule
+    TagModule,
+    RetrievalResultModelComponent
   ],
   templateUrl: './retrieval-results.component.html',
   styleUrl: './retrieval-results.component.scss',
@@ -25,9 +29,10 @@ import {TagModule} from "primeng/tag";
 })
 export class RetrievalResultsComponent {
   recommenderService = inject(RecommenderService)
+  dataService = inject(DataService)
+  metricService = inject(MetricsService)
 
   isLoading = computed(() => {
-    return this.recommenderService.isLoadingSongs() || this.recommenderService.isLoadingRecommendations()
+    return this.dataService.isLoadingSongs() || this.recommenderService.isLoadingRecommendations()
   })
-
 }

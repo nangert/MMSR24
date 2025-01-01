@@ -7,42 +7,43 @@
 
 <div class="container">
   <!-- Display retrieval results -->
-  @if (recommenderService.randomRecommendation()) {
-    <div class="d-flex">
-      <div>
-        <p><strong>Title:</strong> {{ recommenderService.randomRecommendation()?.query_song?.song_title }}</p>
-        <p><strong>Artist:</strong> {{ recommenderService.randomRecommendation()?.query_song?.artist }}</p>
-        <p><strong>Album:</strong> {{ recommenderService.randomRecommendation()?.query_song?.album_name }}</p>
-        @for (genre of recommenderService.randomRecommendation()?.query_song?.genres; track genre) {
-          <p-tag [value]="genre">
-
-          </p-tag>
-        }
-      </div>
-
-      <div class="ms-auto">
-        @if (recommenderService.queryMetrics()) {
-          <app-query-metrics />
-        }
-      </div>
-    </div>
-
-
-
-    <p-panel header="Retrieved songs">
-      @if (recommenderService.randomRecommendation()) {
-
-        <p-accordion [multiple]="true">
-          @for (song of recommenderService.randomRecommendation()?.result_songs; track song.song_id) {
-
-            <app-retrieved-song [song]="song" [querySong]="recommenderService.randomRecommendation()?.query_song!"></app-retrieved-song>
-          }
-        </p-accordion>
-
-      }
-    </p-panel>
-
+  @if (recommenderService.baselineRecommendations()) {
+    <app-retrieval-result-model
+      [retrievalResult]="recommenderService.baselineRecommendations()!"
+      [queryResult]="metricService.baselineMetrics"
+    />
   }
+  @if (recommenderService.tfIdfRecommendations()) {
+    <app-retrieval-result-model
+      [retrievalResult]="recommenderService.tfIdfRecommendations()!"
+      [queryResult]="metricService.tfidfMetrics"
+    />
+  }
+  @if (recommenderService.bertRecommendations()) {
+    <app-retrieval-result-model
+      [retrievalResult]="recommenderService.bertRecommendations()!"
+      [queryResult]="metricService.bertMetrics"
+    />
+  }
+  @if (recommenderService.mfccRecommendations()) {
+    <app-retrieval-result-model
+      [retrievalResult]="recommenderService.mfccRecommendations()!"
+      [queryResult]="metricService.mfccMetrics"
+    />
+  }
+  @if (recommenderService.resNetRecommendations()) {
+    <app-retrieval-result-model
+      [retrievalResult]="recommenderService.resNetRecommendations()!"
+      [queryResult]="metricService.resnetMetrics"
+    />
+  }
+  @if (recommenderService.vgg19Recommendations()) {
+    <app-retrieval-result-model
+      [retrievalResult]="recommenderService.vgg19Recommendations()!"
+      [queryResult]="metricService.vgg19Metrics"
+    />
+  }
+
 </div>
 
 

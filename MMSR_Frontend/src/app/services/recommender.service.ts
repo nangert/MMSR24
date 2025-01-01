@@ -1,9 +1,9 @@
 import {inject, Injectable, Signal, signal, WritableSignal} from '@angular/core';
 import {Observable, Subject, switchMap, tap} from 'rxjs';
-import {RetrieveResult, Song} from '../models/retrieveResult';
+import {RetrieveResult} from '../models/retrieveResult';
 import {RecommenderApiService} from './recommender-api.service';
 import {toSignal} from '@angular/core/rxjs-interop';
-import {QueryMetrics, RetrieveApiModel} from '../models/retrieveModel';
+import {RetrieveApiModel} from '../models/retrieveModel';
 
 @Injectable({
   providedIn: 'root'
@@ -11,48 +11,84 @@ import {QueryMetrics, RetrieveApiModel} from '../models/retrieveModel';
 export class RecommenderService {
   private apiService = inject(RecommenderApiService)
 
-  relevanceMeasure: any
-
-  reloadSongs: Subject<void> = new Subject<void>();
-  reloadSongs$ = this.reloadSongs.asObservable();
-  isLoadingSongs: WritableSignal<boolean> = signal(false)
-
-  getRandomRecommendations: Subject<RetrieveApiModel> = new Subject<RetrieveApiModel>();
-  getRandomRecommendations$ = this.getRandomRecommendations.asObservable();
   isLoadingRecommendations: WritableSignal<boolean> = signal(false)
 
-  isLoadingQueryMetrics: WritableSignal<boolean> = signal(false)
+  getBaselineRecommendations: Subject<RetrieveApiModel> = new Subject<RetrieveApiModel>();
+  getBaselineRecommendations$ = this.getBaselineRecommendations.asObservable();
 
-  songs$: Observable<Song[]> = this.reloadSongs$.pipe(
-    tap(() => this.isLoadingSongs.set(true)),
-    switchMap(() => {
-      this.isLoadingSongs.set(false)
-      return this.apiService.retrieveSongs()
-    })
-  )
-  songs = toSignal(this.songs$, { initialValue: []})
-
-  randomRecommendation$: Observable<RetrieveResult> = this.getRandomRecommendations$.pipe(
+  baselineRecommendations$: Observable<RetrieveResult> = this.getBaselineRecommendations$.pipe(
     tap(() => this.isLoadingRecommendations.set(true)),
     switchMap((model) => {
-      this.isLoadingRecommendations.set(false)
-      return this.apiService.getRandomRecommendations(model.songId, model.count, model.model)
+      return this.apiService.getBaselineRecommendations(model.songId, model.count).pipe(
+        tap(() => this.isLoadingRecommendations.set(false))
+      )
     })
   )
-  randomRecommendation: Signal<RetrieveResult | undefined> = toSignal(this.randomRecommendation$)
+  baselineRecommendations: Signal<RetrieveResult | undefined> = toSignal(this.baselineRecommendations$)
 
-  queryMetrics$: Observable<QueryMetrics> = this.randomRecommendation$.pipe(
-    tap(() => this.isLoadingQueryMetrics.set(true)),
-    switchMap((body) => {
-      if (this.relevanceMeasure) {
-        body.relevanceSystem = this.relevanceMeasure
-      }
-      this.isLoadingQueryMetrics.set(false)
-      return this.apiService.getQueryMetrics(body)
+  getTfIdfRecommendations: Subject<RetrieveApiModel> = new Subject<RetrieveApiModel>();
+  getTfIdfRecommendations$ = this.getTfIdfRecommendations.asObservable();
+
+  tfIdfRecommendations$: Observable<RetrieveResult> = this.getTfIdfRecommendations$.pipe(
+    tap(() => this.isLoadingRecommendations.set(true)),
+    switchMap((model) => {
+      return this.apiService.getTfIdfRecommendations(model.songId, model.count).pipe(
+        tap(() => this.isLoadingRecommendations.set(false))
+      )
     })
   )
-  queryMetrics = toSignal(this.queryMetrics$)
+  tfIdfRecommendations: Signal<RetrieveResult | undefined> = toSignal(this.tfIdfRecommendations$)
 
+  getBertRecommendations: Subject<RetrieveApiModel> = new Subject<RetrieveApiModel>();
+  getBertRecommendations$ = this.getBertRecommendations.asObservable();
 
+  bertRecommendations$: Observable<RetrieveResult> = this.getBertRecommendations$.pipe(
+    tap(() => this.isLoadingRecommendations.set(true)),
+    switchMap((model) => {
+      return this.apiService.getBertRecommendations(model.songId, model.count).pipe(
+        tap(() => this.isLoadingRecommendations.set(false))
+      )
+    })
+  )
+  bertRecommendations: Signal<RetrieveResult | undefined> = toSignal(this.bertRecommendations$)
+
+  getMFCCRecommendations: Subject<RetrieveApiModel> = new Subject<RetrieveApiModel>();
+  getMFCCRecommendations$ = this.getMFCCRecommendations.asObservable();
+
+  mfccRecommendations$: Observable<RetrieveResult> = this.getMFCCRecommendations$.pipe(
+    tap(() => this.isLoadingRecommendations.set(true)),
+    switchMap((model) => {
+      return this.apiService.getMFCCRecommendations(model.songId, model.count).pipe(
+        tap(() => this.isLoadingRecommendations.set(false))
+      )
+    })
+  )
+  mfccRecommendations: Signal<RetrieveResult | undefined> = toSignal(this.mfccRecommendations$)
+
+  getResNetRecommendations: Subject<RetrieveApiModel> = new Subject<RetrieveApiModel>();
+  getResNetRecommendations$ = this.getResNetRecommendations.asObservable();
+
+  resNetRecommendations$: Observable<RetrieveResult> = this.getResNetRecommendations$.pipe(
+    tap(() => this.isLoadingRecommendations.set(true)),
+    switchMap((model) => {
+      return this.apiService.getResNetRecommendations(model.songId, model.count).pipe(
+        tap(() => this.isLoadingRecommendations.set(false))
+      )
+    })
+  )
+  resNetRecommendations: Signal<RetrieveResult | undefined> = toSignal(this.resNetRecommendations$)
+
+  getVGG19Recommendations: Subject<RetrieveApiModel> = new Subject<RetrieveApiModel>();
+  getVGG19Recommendations$ = this.getVGG19Recommendations.asObservable();
+
+  vgg19Recommendations$: Observable<RetrieveResult> = this.getVGG19Recommendations$.pipe(
+    tap(() => this.isLoadingRecommendations.set(true)),
+    switchMap((model) => {
+      return this.apiService.getVGG19Recommendations(model.songId, model.count).pipe(
+        tap(() => this.isLoadingRecommendations.set(false))
+      )
+    })
+  )
+  vgg19Recommendations: Signal<RetrieveResult | undefined> = toSignal(this.vgg19Recommendations$)
 
 }

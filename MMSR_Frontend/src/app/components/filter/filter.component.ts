@@ -8,6 +8,8 @@ import {InputTextModule} from "primeng/inputtext";
 import {FilterModel} from "../../models/filter.model";
 import {toSignal} from "@angular/core/rxjs-interop";
 import {RadioButtonModule} from "primeng/radiobutton";
+import {MetricsService} from "../../services/metrics.service";
+import {DataService} from "../../services/data.service";
 
 @Component({
   selector: 'app-filter',
@@ -26,6 +28,8 @@ import {RadioButtonModule} from "primeng/radiobutton";
 export class FilterComponent implements OnInit{
   private formBuilder = inject(FormBuilder);
   recommenderService = inject(RecommenderService)
+  metricService = inject(MetricsService)
+  dataService = inject(DataService)
 
   selectedCategory: any = null;
   selectedRelevance: any = null;
@@ -59,12 +63,12 @@ export class FilterComponent implements OnInit{
   }) as FormGroup<FilterModel>;
 
   isLoading = computed(() => {
-    return this.recommenderService.isLoadingSongs() || this.recommenderService.isLoadingRecommendations()
+    return this.dataService.isLoadingSongs() || this.recommenderService.isLoadingRecommendations()
   })
 
   filterValuesChanged = toSignal(this.filterForm.valueChanges)
   mappedSongsToDropdown = computed(() => {
-    return this.recommenderService.songs();
+    return this.dataService.songs();
   })
   dropdownValues = computed(() => {
     this.filterValuesChanged()
@@ -83,7 +87,7 @@ export class FilterComponent implements OnInit{
   })
 
   ngOnInit(): void {
-    this.recommenderService.reloadSongs.next()
+    this.dataService.reloadSongs.next()
     this.selectedCategory = this.categories[0];
     this.selectedRelevance = this.relevance[0];
   }
@@ -91,14 +95,35 @@ export class FilterComponent implements OnInit{
   retrieveSongs(): void {
     const model: RetrieveApiModel = {
       songId: this.retrievalForm.controls.songId.value,
-      count: this.retrievalForm.controls.count.value,
-      model: this.retrievalForm.controls.retrievalSystem.value.key
+      count: this.retrievalForm.controls.count.value
     }
 
-    this.recommenderService.relevanceMeasure = this.retrievalForm.controls.relevanceSystem.value.key
+    this.metricService.relevanceMeasure = this.retrievalForm.controls.relevanceSystem.value.key
 
     if (!model.songId || !model.count) return
 
-    this.recommenderService.getRandomRecommendations.next(model)
+    switch (this.retrievalForm.controls.retrievalSystem.value.key) {
+      case 'Baseline':
+        this.recommenderService.getBaselineRecommendations.next(model)
+        break
+      case 'TfIdf':
+        this.recommenderService.getTfIdfRecommendations.next(model)
+        break
+      case 'Bert':
+        this.recommenderService.getBertRecommendations.next(model)
+        break
+      case 'MFCC':
+        this.recommenderService.getMFCCRecommendations.next(model)
+        break
+      case 'ResNet':
+        this.recommenderService.getResNetRecommendations.next(model)
+        break
+      case 'VGG19':
+        this.recommenderService.getVGG19Recommendations.next(model)
+        break
+      default:
+        this.recommenderService.getBaselineRecommendations.next(model)
+    }
+
   }
 }

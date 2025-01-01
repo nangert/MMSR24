@@ -1,0 +1,30 @@
+<div class="d-flex">
+  <div>
+    <p><strong>Title:</strong> {{ retrievalResult.query_song.song_title }}</p>
+    <p><strong>Artist:</strong> {{ retrievalResult.query_song.artist }}</p>
+    <p><strong>Album:</strong> {{ retrievalResult.query_song.album_name }}</p>
+    @for (genre of retrievalResult.query_song.genres; track genre) {
+      <p-tag [value]="genre">
+
+      </p-tag>
+    }
+  </div>
+
+  <div class="ms-auto">
+    @if (queryResult()) {
+      <app-query-metrics [queryMetrics]="queryResult()!"/>
+    }
+  </div>
+
+</div>
+
+
+
+<p-panel header="Retrieved songs">
+  <p-accordion [multiple]="true">
+    @for (song of retrievalResult.result_songs; track song.song_id) {
+
+      <app-retrieved-song [song]="song" [querySong]="retrievalResult.query_song!"></app-retrieved-song>
+    }
+  </p-accordion>
+</p-panel>

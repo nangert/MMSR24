@@ -9,8 +9,7 @@ export interface RetrieveModel {
 
 export interface RetrieveApiModel {
   songId: string,
-  count: number,
-  model: string
+  count: number
 }
 
 export interface QueryMetrics {
