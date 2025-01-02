@@ -1,7 +1,7 @@
 # Music4All.py
 import csv
 import ast
-from typing import List, Dict
+from typing import List, Dict, Tuple
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
@@ -71,6 +71,9 @@ class Dataset:
         """
         self.songs = []
         self.bert_embeddings = {}
+        self.mfcc_embeddings_merged = {}
+        self.mfcc_embeddings_bow = {}
+        self.mfcc_embeddings_stat = {}
         self.resnet_embeddings = {}
         self.vgg19_embeddings = {}
         self.load_dataset(info_file_path, genres_file_path, url_dataset_path, metadata_dataset_path,
@@ -87,7 +90,7 @@ class Dataset:
         self.bert_embeddings = self._load_and_normalize_embeddings(bert_embeddings_path)
         self.resnet_embeddings = self._load_and_normalize_embeddings(resnet_embeddings_path)
         self.vgg19_embeddings = self._load_and_normalize_embeddings(vgg19_embeddings_path)
-        self.mfcc_embeddings = self._load_and_normalize_mfcc(mfcc_bow_path, mfcc_stats_path)
+        self.mfcc_embeddings_merged, self.mfcc_embeddings_bow, self.mfcc_embeddings_stat = self._load_and_normalize_mfcc(mfcc_bow_path, mfcc_stats_path)
 
         self.songs = self._load_song_info(info_file_path, genres_dict, url_dict, metadata_dict)
 
@@ -126,16 +129,41 @@ class Dataset:
         return {row['id']: row[feature_cols].values.astype(np.float32) for _, row in df.iterrows()}
 
     @staticmethod
-    def _load_and_normalize_mfcc(bow_path: str, stats_path: str) -> Dict[str, np.ndarray]:
+    def _load_and_normalize_mfcc(bow_path: str, stats_path: str) -> Tuple[Dict[str, np.ndarray], Dict[str, np.ndarray], Dict[str, np.ndarray]]:
         df_bow = pd.read_csv(bow_path, sep='\t')
         df_stats = pd.read_csv(stats_path, sep='\t')
         merged_df = pd.merge(df_bow, df_stats, on='id')
 
         scaler = MinMaxScaler()
-        feature_cols = merged_df.columns[1:]
-        merged_df[feature_cols] = scaler.fit_transform(merged_df[feature_cols])
 
-        return {row['id']: row[feature_cols].values.astype(np.float32) for _, row in merged_df.iterrows()}
+        # Normalize the merged dataset
+        feature_cols_merged = merged_df.columns[1:]
+        merged_df[feature_cols_merged] = scaler.fit_transform(merged_df[feature_cols_merged])
+
+        merged_dict = {
+            row['id']: row[feature_cols_merged].values.astype(np.float32)
+            for _, row in merged_df.iterrows()
+        }
+
+        # Normalize df_bow
+        feature_cols_bow = df_bow.columns[1:]
+        df_bow[feature_cols_bow] = scaler.fit_transform(df_bow[feature_cols_bow])
+
+        bow_dict = {
+            row['id']: row[feature_cols_bow].values.astype(np.float32)
+            for _, row in df_bow.iterrows()
+        }
+
+        # Normalize df_stats
+        feature_cols_stats = df_stats.columns[1:]
+        df_stats[feature_cols_stats] = scaler.fit_transform(df_stats[feature_cols_stats])
+
+        stats_dict = {
+            row['id']: row[feature_cols_stats].values.astype(np.float32)
+            for _, row in df_stats.iterrows()
+        }
+
+        return merged_dict, bow_dict, stats_dict
 
 
     @staticmethod
