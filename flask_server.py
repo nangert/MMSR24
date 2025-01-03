@@ -41,8 +41,8 @@ vgg19_retrieval_system = EmbeddingRetrievalSystem(dataset, dataset.vgg19_embeddi
 baseline_retrieval_system = BaselineRetrievalSystem(dataset)
 mfcc_retrieval_system = MFCCRetrievalSystem(dataset)
 tfidf_retrieval_system = TFIDFRetrievalSystem(dataset, tfidf_embeddings_path)
-lambdamart_model_path = 'lgbm_ltr_model.txt'
-lambdamart_retrieval_system = LambdaMARTRetrievalSystem(dataset, lambdamart_model_path)
+lambdamart_model_path = 'lambdamart.pkl'
+lambdamart_retrieval_system = LambdaMARTRetrievalSystem(dataset, lambdamart_model_path, 14)
 
 @app.route('/calculate_metrics', methods=['POST'])
 def calculate_metrics():
@@ -226,7 +226,7 @@ def retrieve_songs(query_song: Song, n: number, model: str):
             print('vgg19')
             retrieved_songs = vgg19_retrieval_system.get_retrieval(query_song, n)
         case 'LambdaMART':
-            retrieved_songs = lambdamart_retrieval_system.get_retrieval(query_song, N)
+            retrieved_songs = lambdamart_retrieval_system.get_retrieval(query_song, n)
         case _:
             print('default')
             retrieved_songs = bert_retrieval_system.get_retrieval(query_song, n)
