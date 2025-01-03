@@ -2,7 +2,6 @@ import {Component, inject, Input} from '@angular/core';
 import {AccordionModule} from "primeng/accordion";
 import {Song} from "../../models/retrieveResult";
 import {DomSanitizer, SafeResourceUrl} from "@angular/platform-browser";
-import {NgxLiteYoutubeModule} from "ngx-lite-video";
 import {Button} from "primeng/button";
 import {ChipModule} from "primeng/chip";
 import {NgClass} from "@angular/common";
@@ -13,7 +12,6 @@ import {TagModule} from "primeng/tag";
   standalone: true,
   imports: [
     AccordionModule,
-    NgxLiteYoutubeModule,
     Button,
     ChipModule,
     NgClass,

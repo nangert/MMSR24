@@ -138,7 +138,16 @@
       >
         Retrieve Songs
       </button>
+
+
     </form>
+    <button
+      class="btn btn-primary"
+      [disabled]="isLoading()"
+      (click)="clearResults()"
+    >
+      Clear Results
+    </button>
   </div>
 
 </div>

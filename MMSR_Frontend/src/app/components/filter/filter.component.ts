@@ -126,4 +126,8 @@ export class FilterComponent implements OnInit{
     }
 
   }
+
+  clearResults(): void {
+    this.recommenderService.getBaselineRecommendations.next(void 0)
+  }
 }
