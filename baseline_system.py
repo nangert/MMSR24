@@ -1,9 +1,6 @@
 # baseline_system.py
 
 import random
-import csv
-import json
-import ast
 from typing import List, Dict
 
 from Music4All import Dataset, Song

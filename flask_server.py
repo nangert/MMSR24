@@ -3,8 +3,6 @@ import json
 from flask import Flask, request, jsonify
 from flask_cors import CORS  # Import the CORS library
 from numpy import number
-from numpy.f2py.rules import defmod_rules
-from sympy.strategies.core import switch
 
 from Music4All import Dataset, Song
 from accuracy_metrics import Metrics
