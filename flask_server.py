@@ -11,6 +11,7 @@ from embedding_system import EmbeddingRetrievalSystem
 from mfcc_retrieval import MFCCRetrievalSystem
 from flask_server_utilities import get_query_data
 from tfidf_retrieval import TFIDFRetrievalSystem
+from lambdamart_system import LambdaMARTRetrievalSystem
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
@@ -27,9 +28,11 @@ tfidf_embeddings_path = 'dataset/id_lyrics_tf-idf_mmsr.tsv'
 
 bow_path = 'dataset/id_mfcc_bow_mmsr.tsv'
 stats_path = 'dataset/id_mfcc_stats_mmsr.tsv'
+lambdamart_feats_path = 'dataset/id_lambdamart_feats.tsv'
 
 dataset = Dataset(info_dataset_path, genres_dataset_path, url_dataset_path,
-                  metadata_dataset_path, bert_embeddings_path, resnet_embeddings_path, vgg19_embeddings_path, bow_path, stats_path)
+                  metadata_dataset_path, bert_embeddings_path, resnet_embeddings_path,
+                  vgg19_embeddings_path, bow_path, stats_path, lambdamart_feats_path)
 
 bert_retrieval_system = EmbeddingRetrievalSystem(dataset, dataset.bert_embeddings, "Bert")
 resnet_retrieval_system = EmbeddingRetrievalSystem(dataset, dataset.resnet_embeddings, "ResNet")
@@ -38,6 +41,8 @@ vgg19_retrieval_system = EmbeddingRetrievalSystem(dataset, dataset.vgg19_embeddi
 baseline_retrieval_system = BaselineRetrievalSystem(dataset)
 mfcc_retrieval_system = MFCCRetrievalSystem(dataset)
 tfidf_retrieval_system = TFIDFRetrievalSystem(dataset, tfidf_embeddings_path)
+lambdamart_model_path = 'lgbm_ltr_model.txt'
+lambdamart_retrieval_system = LambdaMARTRetrievalSystem(dataset, lambdamart_model_path)
 
 @app.route('/calculate_metrics', methods=['POST'])
 def calculate_metrics():
@@ -185,6 +190,15 @@ def retrieve_vgg19():
 
     return retrieve_songs(query_song, n, model='VGG19')
 
+@app.route('/retrieve/lambdaMART', methods=['POST'])
+def retrieve_lambaMart():
+    query_song, n = get_query_data(request.get_json(), dataset)
+
+    if not query_song:
+        return jsonify({"error": "Query song not found"}), 404
+
+    return retrieve_songs(query_song, n, model='LambdaMART')
+
 def retrieve_songs(query_song: Song, n: number, model: str):
     match model:
         case 'Baseline':
@@ -211,6 +225,8 @@ def retrieve_songs(query_song: Song, n: number, model: str):
         case 'VGG19':
             print('vgg19')
             retrieved_songs = vgg19_retrieval_system.get_retrieval(query_song, n)
+        case 'LambdaMART':
+            retrieved_songs = lambdamart_retrieval_system.get_retrieval(query_song, N)
         case _:
             print('default')
             retrieved_songs = bert_retrieval_system.get_retrieval(query_song, n)
