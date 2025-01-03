@@ -43,6 +43,22 @@ export class RecommenderApiService {
     });
   }
 
+  getMFCCBOWRecommendations(querySongId: string, N: number): Observable<RetrieveResult> {
+    const url = `${this.baseUrl}/retrieve/mfccbow`;
+    return this.http.post<RetrieveResult>(url, {
+      query_song_id: querySongId,
+      N: N
+    });
+  }
+
+  getMFCCSTATRecommendations(querySongId: string, N: number): Observable<RetrieveResult> {
+    const url = `${this.baseUrl}/retrieve/mfccstat`;
+    return this.http.post<RetrieveResult>(url, {
+      query_song_id: querySongId,
+      N: N
+    });
+  }
+
   getMFCCRecommendations(querySongId: string, N: number): Observable<RetrieveResult> {
     const url = `${this.baseUrl}/retrieve/mfcc`;
     return this.http.post<RetrieveResult>(url, {

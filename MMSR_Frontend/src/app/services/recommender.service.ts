@@ -65,6 +65,26 @@ export class RecommenderService {
   )
   mfccRecommendations: Signal<RetrieveResult | undefined> = toSignal(this.mfccRecommendations$)
 
+  mfccbowRecommendations$: Observable<RetrieveResult> = this.getMFCCRecommendations$.pipe(
+    tap(() => this.isLoadingRecommendations.set(true)),
+    switchMap((model) => {
+      return this.apiService.getMFCCBOWRecommendations(model.songId, model.count).pipe(
+        tap(() => this.isLoadingRecommendations.set(false))
+      )
+    })
+  )
+  mfccbowRecommendations: Signal<RetrieveResult | undefined> = toSignal(this.mfccbowRecommendations$)
+
+  mfccstatRecommendations$: Observable<RetrieveResult> = this.getMFCCRecommendations$.pipe(
+    tap(() => this.isLoadingRecommendations.set(true)),
+    switchMap((model) => {
+      return this.apiService.getMFCCSTATRecommendations(model.songId, model.count).pipe(
+        tap(() => this.isLoadingRecommendations.set(false))
+      )
+    })
+  )
+  mfccstatRecommendations: Signal<RetrieveResult | undefined> = toSignal(this.mfccstatRecommendations$)
+
   getResNetRecommendations: Subject<RetrieveApiModel> = new Subject<RetrieveApiModel>();
   getResNetRecommendations$ = this.getResNetRecommendations.asObservable();
 

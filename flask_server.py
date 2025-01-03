@@ -151,6 +151,24 @@ def retrieve_mfcc():
 
     return retrieve_songs(query_song, n, model='MFCC')
 
+@app.route('/retrieve/mfccbow', methods=['POST'])
+def retrieve_mfcc_bow():
+    query_song, n = get_query_data(request.get_json(), dataset)
+
+    if not query_song:
+        return jsonify({"error": "Query song not found"}), 404
+
+    return retrieve_songs(query_song, n, model='MFCCBOW')
+
+@app.route('/retrieve/mfccstat', methods=['POST'])
+def retrieve_mfcc_stat():
+    query_song, n = get_query_data(request.get_json(), dataset)
+
+    if not query_song:
+        return jsonify({"error": "Query song not found"}), 404
+
+    return retrieve_songs(query_song, n, model='MFCCSTAT')
+
 @app.route('/retrieve/resnet', methods=['POST'])
 def retrieve_resnet():
     query_song, n = get_query_data(request.get_json(), dataset)

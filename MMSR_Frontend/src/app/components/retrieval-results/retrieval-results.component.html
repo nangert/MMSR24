@@ -31,6 +31,18 @@
       [queryResult]="metricService.mfccMetrics"
     />
   }
+  @if (recommenderService.mfccbowRecommendations()) {
+    <app-retrieval-result-model
+      [retrievalResult]="recommenderService.mfccbowRecommendations()!"
+      [queryResult]="metricService.mfccbowMetrics"
+    />
+  }
+  @if (recommenderService.mfccstatRecommendations()) {
+    <app-retrieval-result-model
+      [retrievalResult]="recommenderService.mfccstatRecommendations()!"
+      [queryResult]="metricService.mfccstatMetrics"
+    />
+  }
   @if (recommenderService.resNetRecommendations()) {
     <app-retrieval-result-model
       [retrievalResult]="recommenderService.resNetRecommendations()!"
