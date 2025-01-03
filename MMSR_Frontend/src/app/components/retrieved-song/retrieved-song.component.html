@@ -1,9 +1,0 @@
-
-<p-accordionTab [header]="getAccordionTitle()">
-  <!--<iframe [src]="getSafeUrl(song.url)" width="600" height="400"></iframe>-->
-  @for (genre of song.genres; track genre) {
-    <p-tag [value]="genre" [severity]="querySong.genres.includes(genre) ? 'success' : 'secondary'">
-
-    </p-tag>
-  }
-</p-accordionTab>

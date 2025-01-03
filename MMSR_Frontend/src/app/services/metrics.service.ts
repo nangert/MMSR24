@@ -126,4 +126,18 @@ export class MetricsService {
     })
   )
   vgg19Metrics = toSignal(this.vgg19Metrics$)
+
+  lamdaMARTMetrics$: Observable<QueryMetrics | undefined> = this.recommenderService.lamdaMARTRecommendations$.pipe(
+    tap(() => this.isLoadingQueryMetrics.set(true)),
+    switchMap((body) => {
+      if (!body) return of(void 0)
+
+      if (this.relevanceMeasure) {
+        body.relevanceSystem = this.relevanceMeasure
+      }
+      this.isLoadingQueryMetrics.set(false)
+      return this.apiService.getQueryMetrics(body)
+    })
+  )
+  lamdaMARTMetrics = toSignal(this.lamdaMARTMetrics$)
 }

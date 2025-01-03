@@ -83,6 +83,14 @@ export class RecommenderApiService {
     });
   }
 
+  getLamdaMARTRecommendations(querySongId: string, N: number): Observable<RetrieveResult> {
+    const url = `${this.baseUrl}/retrieve/lamdaMART`;
+    return this.http.post<RetrieveResult>(url, {
+      query_song_id: querySongId,
+      N: N
+    });
+  }
+
   getQueryMetrics(body: RetrieveResult): Observable<QueryMetrics> {
     return this.http.post<QueryMetrics>(`${this.baseUrl}/calculate_metrics`, body)
   }

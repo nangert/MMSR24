@@ -1,30 +1,46 @@
-<div class="d-flex">
-  <div>
-    <p><strong>Title:</strong> {{ retrievalResult.query_song.song_title }}</p>
-    <p><strong>Artist:</strong> {{ retrievalResult.query_song.artist }}</p>
-    <p><strong>Album:</strong> {{ retrievalResult.query_song.album_name }}</p>
-    @for (genre of retrievalResult.query_song.genres; track genre) {
-      <p-tag [value]="genre">
+<p-card [header]="retrievalSystem">
 
-      </p-tag>
-    }
-  </div>
-
-  <div class="ms-auto">
+  <ng-template>
     @if (queryResult()) {
       <app-query-metrics [queryMetrics]="queryResult()!"/>
     }
-  </div>
+  </ng-template>
 
-</div>
+  <ng-container>
+    <p-table [value]="retrievalResult.result_songs">
+      <!-- Header -->
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Song</th>
+          <th>Album</th>
+          <th>Artist</th>
+          <th>Genres</th>
+          <th>YouTube</th>
+        </tr>
+      </ng-template>
 
+      <!-- Body -->
+      <ng-template pTemplate="body" let-song>
+        <tr>
+          <td>{{ song.song_title }}</td>
+          <td>{{ song.album_name }}</td>
+          <td>{{ song.artist }}</td>
+          <td>
+            @for (genre of song.genres; track genre) {
+              <p-tag [value]="genre" [severity]="checkIfGenreMatch(genre) ? 'success' : 'secondary'">
 
+              </p-tag>
+            }
+          </td>
+          <td>
+            <a [href]="song.url" target="_blank" rel="noopener noreferrer" class="p-button font-bold custom-link">
+              YouTube
+            </a>
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </ng-container>
 
-<p-panel header="Retrieved songs">
-  <p-accordion [multiple]="true">
-    @for (song of retrievalResult.result_songs; track song.song_id) {
+</p-card>
 
-      <app-retrieved-song [song]="song" [querySong]="retrievalResult.query_song!"></app-retrieved-song>
-    }
-  </p-accordion>
-</p-panel>

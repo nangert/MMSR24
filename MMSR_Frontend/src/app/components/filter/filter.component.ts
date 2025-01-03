@@ -10,6 +10,8 @@ import {toSignal} from "@angular/core/rxjs-interop";
 import {RadioButtonModule} from "primeng/radiobutton";
 import {MetricsService} from "../../services/metrics.service";
 import {DataService} from "../../services/data.service";
+import {CheckboxModule} from "primeng/checkbox";
+import {SliderModule} from "primeng/slider";
 
 @Component({
   selector: 'app-filter',
@@ -19,7 +21,9 @@ import {DataService} from "../../services/data.service";
     DropdownModule,
     InputGroupModule,
     InputTextModule,
-    RadioButtonModule
+    RadioButtonModule,
+    CheckboxModule,
+    SliderModule
   ],
   templateUrl: './filter.component.html',
   styleUrl: './filter.component.scss',
@@ -28,11 +32,7 @@ import {DataService} from "../../services/data.service";
 export class FilterComponent implements OnInit{
   private formBuilder = inject(FormBuilder);
   recommenderService = inject(RecommenderService)
-  metricService = inject(MetricsService)
   dataService = inject(DataService)
-
-  selectedCategory: any = null;
-  selectedRelevance: any = null;
 
   categories: any[] = [
     { name: 'Baseline', key: 'Baseline' },
@@ -40,7 +40,8 @@ export class FilterComponent implements OnInit{
     { name: 'BERT', key: 'Bert' },
     { name: 'MFCC', key: 'MFCC' },
     { name: 'ResNet', key: 'ResNet' },
-    { name: 'VGG19', key: 'VGG19' }
+    { name: 'VGG19', key: 'VGG19' },
+    { name: 'LambdaMART', key: 'LambdaMART' }
   ];
 
   relevance: any[] = [
@@ -51,8 +52,8 @@ export class FilterComponent implements OnInit{
   retrievalForm: FormGroup<RetrieveModel> = this.formBuilder.group({
     songId: '',
     count: 10,
-    retrievalSystem: 'Baseline',
-    relevanceSystem: 'Top'
+    retrievalSystem: this.formBuilder.control([this.categories[0].key]),
+    relevanceSystem: this.relevance[0].key
   }) as FormGroup<RetrieveModel>;
 
   filterForm: FormGroup<FilterModel> = this.formBuilder.group({
@@ -88,8 +89,6 @@ export class FilterComponent implements OnInit{
 
   ngOnInit(): void {
     this.dataService.reloadSongs.next()
-    this.selectedCategory = this.categories[0];
-    this.selectedRelevance = this.relevance[0];
   }
 
   retrieveSongs(): void {
@@ -98,36 +97,41 @@ export class FilterComponent implements OnInit{
       count: this.retrievalForm.controls.count.value
     }
 
-    this.metricService.relevanceMeasure = this.retrievalForm.controls.relevanceSystem.value.key
-
+    console.log(this.retrievalForm.controls.retrievalSystem.value)
     if (!model.songId || !model.count) return
 
-    switch (this.retrievalForm.controls.retrievalSystem.value.key) {
-      case 'Baseline':
-        this.recommenderService.getBaselineRecommendations.next(model)
-        break
-      case 'TfIdf':
-        this.recommenderService.getTfIdfRecommendations.next(model)
-        break
-      case 'Bert':
-        this.recommenderService.getBertRecommendations.next(model)
-        break
-      case 'MFCC':
-        this.recommenderService.getMFCCRecommendations.next(model)
-        break
-      case 'ResNet':
-        this.recommenderService.getResNetRecommendations.next(model)
-        break
-      case 'VGG19':
-        this.recommenderService.getVGG19Recommendations.next(model)
-        break
-      default:
-        this.recommenderService.getBaselineRecommendations.next(model)
+    if (model.songId !== this.recommenderService.querySong()?.song_id) {
+      this.recommenderService.resetRecommendations()
     }
 
-  }
+    for (let retrievalSystem of this.retrievalForm.controls.retrievalSystem.value) {
+      switch (retrievalSystem) {
+        case 'Baseline':
+          this.recommenderService.getBaselineRecommendations.next(model)
+          break
+        case 'TfIdf':
+          this.recommenderService.getTfIdfRecommendations.next(model)
+          break
+        case 'Bert':
+          this.recommenderService.getBertRecommendations.next(model)
+          break
+        case 'MFCC':
+          this.recommenderService.getMFCCRecommendations.next(model)
+          break
+        case 'ResNet':
+          this.recommenderService.getResNetRecommendations.next(model)
+          break
+        case 'VGG19':
+          this.recommenderService.getVGG19Recommendations.next(model)
+          break
+        case 'LambdaMART':
+          this.recommenderService.getLamdaMARTRecommendations.next(model)
+          break
+        default:
+          this.recommenderService.getBaselineRecommendations.next(model)
+      }
+    }
 
-  clearResults(): void {
-    this.recommenderService.getBaselineRecommendations.next(void 0)
+
   }
 }
