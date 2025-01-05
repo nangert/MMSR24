@@ -209,16 +209,32 @@ def retrieve_songs(query_song: Song, n: number, model: str):
             retrieved_songs = bert_retrieval_system.get_retrieval(query_song, n)
         case 'MFCCBOW':
             print('mfccbow')
-            retrieved_songs = mfcc_retrieval_system.recommend_similar_songs_bow(query_song, n)
+            if n <= 100:
+                retrieved_songs = mfcc_retrieval_system.recommend_similar_songs_bow(query_song, n)
+            else:
+                # Compute similarities on the fly
+                retrieved_songs = mfcc_retrieval_system.compute_recommendations_bow(query_song, n)
         case 'MFCCBOWCOS':
             print('mfccbowcos')
-            retrieved_songs = mfcc_retrieval_system.recommend_similar_songs_bow(query_song, n)
+            if n <= 100:
+                retrieved_songs = mfcc_retrieval_system.recommend_similar_songs_bow_cos(query_song, n)
+            else:
+                # Compute similarities on the fly
+                retrieved_songs = mfcc_retrieval_system.compute_recommendations_bow_cos(query_song, n)
         case 'MFCCSTAT':
             print('mfccstat')
-            retrieved_songs = mfcc_retrieval_system.recommend_similar_songs_stat(query_song, n)
+            if n <= 100:
+                retrieved_songs = mfcc_retrieval_system.recommend_similar_songs_stat(query_song, n)
+            else:
+                # Compute similarities on the fly
+                retrieved_songs = mfcc_retrieval_system.compute_recommendations_stat(query_song, n)
         case 'MFCCSTATCOS':
             print('mfccstatcos')
-            retrieved_songs = mfcc_retrieval_system.recommend_similar_songs_stat(query_song, n)
+            if n <= 100:
+                retrieved_songs = mfcc_retrieval_system.recommend_similar_songs_stat_cos(query_song, n)
+            else:
+                # Compute similarities on the fly
+                retrieved_songs = mfcc_retrieval_system.compute_recommendations_stat_cos(query_song, n)
         case 'ResNet':
             print('resnet')
             retrieved_songs = resnet_retrieval_system.get_retrieval(query_song, n)
