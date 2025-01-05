@@ -44,13 +44,6 @@
       retrievalSystem="BERT Model"
     />
   }
-  @if (recommenderService.mfccRecommendations()) {
-    <app-retrieval-result-model
-      [retrievalResult]="recommenderService.mfccRecommendations()!"
-      [queryResult]="metricService.mfccMetrics"
-      retrievalSystem="MFCC Model"
-    />
-  }
   @if (recommenderService.mfccbowRecommendations()) {
     <app-retrieval-result-model
       [retrievalResult]="recommenderService.mfccbowRecommendations()!"

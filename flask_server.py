@@ -145,15 +145,6 @@ def retrieve_bert():
 
     return retrieve_songs(query_song, n, model='Bert')
 
-@app.route('/retrieve/mfcc', methods=['POST'])
-def retrieve_mfcc():
-    query_song, n = get_query_data(request.get_json(), dataset)
-
-    if not query_song:
-        return jsonify({"error": "Query song not found"}), 404
-
-    return retrieve_songs(query_song, n, model='MFCC')
-
 @app.route('/retrieve/mfccbow', methods=['POST'])
 def retrieve_mfcc_bow():
     query_song, n = get_query_data(request.get_json(), dataset)
@@ -210,9 +201,6 @@ def retrieve_songs(query_song: Song, n: number, model: str):
         case 'Bert':
             print('bert')
             retrieved_songs = bert_retrieval_system.get_retrieval(query_song, n)
-        case 'MFCC':
-            print('mfcc')
-            retrieved_songs = mfcc_retrieval_system.recommend_similar_songs_merged(query_song, n)
         case 'MFCCBOW':
             print('mfccbow')
             retrieved_songs = mfcc_retrieval_system.recommend_similar_songs_bow(query_song, n)

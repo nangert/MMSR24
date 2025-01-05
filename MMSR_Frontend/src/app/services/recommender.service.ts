@@ -74,22 +74,6 @@ export class RecommenderService {
   getMFCCRecommendations: Subject<RetrieveApiModel | void> = new Subject<RetrieveApiModel | void>();
   getMFCCRecommendations$ = this.getMFCCRecommendations.asObservable();
 
-  mfccRecommendations$: Observable<RetrieveResult | undefined> = this.getMFCCRecommendations$.pipe(
-    switchMap((model) => {
-      if (!model) return of(void 0)
-
-      this.isLoadingRecommendations.set(true)
-
-      return this.apiService.getMFCCRecommendations(model.songId, model.count).pipe(
-        tap((res) => {
-          this.querySong.set(res.query_song)
-          this.isLoadingRecommendations.set(false)
-        })
-      )
-    })
-  )
-  mfccRecommendations: Signal<RetrieveResult | undefined> = toSignal(this.mfccRecommendations$)
-
   mfccbowRecommendations$: Observable<RetrieveResult | undefined> = this.getMFCCRecommendations$.pipe(
     switchMap((model) => {
       if (!model) return of(void 0)
