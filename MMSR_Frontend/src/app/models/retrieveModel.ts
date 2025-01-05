@@ -3,8 +3,7 @@ import {FormControl} from '@angular/forms';
 export interface RetrieveModel {
   songId: FormControl<string>,
   count: FormControl<number>,
-  retrievalSystem: FormControl<any>,
-  relevanceSystem: FormControl<any>,
+  retrievalSystem: FormControl<any>
 }
 
 export interface RetrieveApiModel {

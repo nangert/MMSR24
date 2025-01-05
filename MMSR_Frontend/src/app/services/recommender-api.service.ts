@@ -44,23 +44,32 @@ export class RecommenderApiService {
   }
 
   getMFCCBOWRecommendations(querySongId: string, N: number): Observable<RetrieveResult> {
-    const url = `${this.baseUrl}/retrieve/mfccbow`;
+    const url = `${this.baseUrl}/retrieve/mfcc-bow`;
     return this.http.post<RetrieveResult>(url, {
       query_song_id: querySongId,
       N: N
     });
   }
+
+  getMFCCBOWCosRecommendations(querySongId: string, N: number): Observable<RetrieveResult> {
+    const url = `${this.baseUrl}/retrieve/mfcc-bow-cos`;
+    return this.http.post<RetrieveResult>(url, {
+      query_song_id: querySongId,
+      N: N
+    });
+  }
+
 
   getMFCCSTATRecommendations(querySongId: string, N: number): Observable<RetrieveResult> {
-    const url = `${this.baseUrl}/retrieve/mfccstat`;
+    const url = `${this.baseUrl}/retrieve/mfcc-stat`;
     return this.http.post<RetrieveResult>(url, {
       query_song_id: querySongId,
       N: N
     });
   }
 
-  getMFCCRecommendations(querySongId: string, N: number): Observable<RetrieveResult> {
-    const url = `${this.baseUrl}/retrieve/mfcc`;
+  getMFCCSTATCosRecommendations(querySongId: string, N: number): Observable<RetrieveResult> {
+    const url = `${this.baseUrl}/retrieve/mfcc-stat-cos`;
     return this.http.post<RetrieveResult>(url, {
       query_song_id: querySongId,
       N: N

@@ -1,24 +1,23 @@
 ﻿# flask_server.py
-import json
 from flask import Flask, request, jsonify
 from flask_cors import CORS  # Import the CORS library
 from numpy import number
 
 from Music4All import Dataset, Song
-from accuracy_metrics import Metrics
-from baseline_system import BaselineRetrievalSystem
-from embedding_system import EmbeddingRetrievalSystem
-from mfcc_retrieval import MFCCRetrievalSystem
 from flask_server_utilities import get_query_data
-from tfidf_retrieval import TFIDFRetrievalSystem
-from lambdamart_system import LambdaMARTRetrievalSystem
+from metrics.accuracy_metrics import Metrics
+from retrieval_systems.baseline_system import BaselineRetrievalSystem
+from retrieval_systems.embedding_system import EmbeddingRetrievalSystem
+from retrieval_systems.lambdamart_system import LambdaMARTRetrievalSystem
+from retrieval_systems.mfcc_retrieval import MFCCRetrievalSystem
+from retrieval_systems.tfidf_retrieval import TFIDFRetrievalSystem
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
 # Initialize dataset and retrieval system
 info_dataset_path = 'dataset/id_information_mmsr.tsv'  # Path to your song information TSV file
-genres_dataset_path = 'dataset/id_genres_mmsr.tsv'     # Path to your genres TSV file
+genres_dataset_path = 'dataset/id_genres_mmsr.tsv'  # Path to your genres TSV file
 url_dataset_path = 'dataset/id_url_mmsr.tsv'
 metadata_dataset_path = 'dataset/id_metadata_mmsr.tsv'
 bert_embeddings_path = 'dataset/id_lyrics_bert_mmsr.tsv'
@@ -54,7 +53,6 @@ def calculate_metrics():
         query_song = data.get('query_song', '')
         result_songs = data.get('result_songs', [])
         k = data.get('k', 10)
-        relevance_measure = data.get('relevanceSystem', '')
 
         if not query_song or not result_songs:
             return jsonify({"error": "Invalid or missing 'query_song' or 'result_songs'"}), 400
@@ -73,22 +71,12 @@ def calculate_metrics():
         result_songs_filtered_genre = []
         for song in result_songs:
             song_id = song.get('song_id', '')
-            if relevance_measure == 'Top':
-                top_genres = top_genre_weights.get(song_id, set())
-                if top_genres:
-                    result_songs_filtered_genre.append({
-                        "song_id": song_id,
-                        "genres": list(top_genres)
-                    })
-            else:
-                song_genres = set(song.get('genres', []))
-                query_genres = set(query_genres)
-                overlapping_genres = song_genres & query_genres
-                if overlapping_genres:
-                    result_songs_filtered_genre.append({
-                        "song_id": song_id,
-                        "genres": list(overlapping_genres)
-                    })
+            top_genres = top_genre_weights.get(song_id, set())
+            if top_genres:
+                result_songs_filtered_genre.append({
+                    "song_id": song_id,
+                    "genres": list(top_genres)
+                })
 
         # Determine total relevant items
         total_relevant = dataset.get_total_relevant(query_song, top_genre_weights)
@@ -145,7 +133,7 @@ def retrieve_bert():
 
     return retrieve_songs(query_song, n, model='Bert')
 
-@app.route('/retrieve/mfccbow', methods=['POST'])
+@app.route('/retrieve/mfcc-bow', methods=['POST'])
 def retrieve_mfcc_bow():
     query_song, n = get_query_data(request.get_json(), dataset)
 
@@ -154,7 +142,16 @@ def retrieve_mfcc_bow():
 
     return retrieve_songs(query_song, n, model='MFCCBOW')
 
-@app.route('/retrieve/mfccstat', methods=['POST'])
+@app.route('/retrieve/mfcc-bow-cos', methods=['POST'])
+def retrieve_mfcc_bow_cos():
+    query_song, n = get_query_data(request.get_json(), dataset)
+
+    if not query_song:
+        return jsonify({"error": "Query song not found"}), 404
+
+    return retrieve_songs(query_song, n, model='MFCCBOWCOS')
+
+@app.route('/retrieve/mfcc-stat', methods=['POST'])
 def retrieve_mfcc_stat():
     query_song, n = get_query_data(request.get_json(), dataset)
 
@@ -162,6 +159,15 @@ def retrieve_mfcc_stat():
         return jsonify({"error": "Query song not found"}), 404
 
     return retrieve_songs(query_song, n, model='MFCCSTAT')
+
+@app.route('/retrieve/mfcc-stat-cos', methods=['POST'])
+def retrieve_mfcc_stat_cos():
+    query_song, n = get_query_data(request.get_json(), dataset)
+
+    if not query_song:
+        return jsonify({"error": "Query song not found"}), 404
+
+    return retrieve_songs(query_song, n, model='MFCCSTATCOS')
 
 @app.route('/retrieve/resnet', methods=['POST'])
 def retrieve_resnet():
@@ -204,8 +210,14 @@ def retrieve_songs(query_song: Song, n: number, model: str):
         case 'MFCCBOW':
             print('mfccbow')
             retrieved_songs = mfcc_retrieval_system.recommend_similar_songs_bow(query_song, n)
+        case 'MFCCBOWCOS':
+            print('mfccbowcos')
+            retrieved_songs = mfcc_retrieval_system.recommend_similar_songs_bow(query_song, n)
         case 'MFCCSTAT':
             print('mfccstat')
+            retrieved_songs = mfcc_retrieval_system.recommend_similar_songs_stat(query_song, n)
+        case 'MFCCSTATCOS':
+            print('mfccstatcos')
             retrieved_songs = mfcc_retrieval_system.recommend_similar_songs_stat(query_song, n)
         case 'ResNet':
             print('resnet')

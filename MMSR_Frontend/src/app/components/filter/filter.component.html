@@ -74,27 +74,6 @@
         }
       </div>
 
-      <label>
-        Pick a relevance measure:
-      </label>
-
-      <div class="d-flex flex-row gap-3 mb-3 mt-3">
-        @for (measure of relevance; track measure.key) {
-          <div>
-            <p-radioButton
-              [inputId]="measure.key"
-              name="relevance"
-              [value]="retrievalForm.controls.relevanceSystem"
-              [formControl]="retrievalForm.controls.relevanceSystem"
-            />
-            <label [for]="measure.key" class="ms-1">
-              {{ measure.name }}
-            </label>
-          </div>
-        }
-
-      </div>
-
       @if (false) {
         <div class="form-group mb-3">
           <label for="querySongId">Query Song ID:</label>

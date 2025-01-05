@@ -44,16 +44,10 @@ export class FilterComponent implements OnInit{
     { name: 'LambdaMART', key: 'LambdaMART' }
   ];
 
-  relevance: any[] = [
-    { name: 'Top genre weights', key: 'Top' },
-    { name: 'Any genre match', key: 'Any' }
-  ];
-
   retrievalForm: FormGroup<RetrieveModel> = this.formBuilder.group({
     songId: '',
     count: 10,
     retrievalSystem: this.formBuilder.control([this.categories[0].key]),
-    relevanceSystem: this.relevance[0].key
   }) as FormGroup<RetrieveModel>;
 
   filterForm: FormGroup<FilterModel> = this.formBuilder.group({
@@ -97,7 +91,6 @@ export class FilterComponent implements OnInit{
       count: this.retrievalForm.controls.count.value
     }
 
-    console.log(this.retrievalForm.controls.retrievalSystem.value)
     if (!model.songId || !model.count) return
 
     if (model.songId !== this.recommenderService.querySong()?.song_id) {

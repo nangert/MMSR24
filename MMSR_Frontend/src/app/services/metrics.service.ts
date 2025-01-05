@@ -12,7 +12,6 @@ export class MetricsService {
   private apiService = inject(RecommenderApiService)
   private recommenderService = inject(RecommenderService)
 
-  relevanceMeasure: any
   isLoadingQueryMetrics: WritableSignal<boolean> = signal(false)
 
   baselineMetrics$: Observable<QueryMetrics | undefined> = this.recommenderService.baselineRecommendations$.pipe(
@@ -20,9 +19,6 @@ export class MetricsService {
     switchMap((body) => {
       if (!body) return of(void 0)
 
-      if (this.relevanceMeasure) {
-        body.relevanceSystem = this.relevanceMeasure
-      }
       this.isLoadingQueryMetrics.set(false)
       return this.apiService.getQueryMetrics(body)
     })
@@ -34,9 +30,6 @@ export class MetricsService {
     switchMap((body) => {
       if (!body) return of(void 0)
 
-      if (this.relevanceMeasure) {
-        body.relevanceSystem = this.relevanceMeasure
-      }
       this.isLoadingQueryMetrics.set(false)
       return this.apiService.getQueryMetrics(body)
     })
@@ -48,9 +41,6 @@ export class MetricsService {
     switchMap((body) => {
       if (!body) return of(void 0)
 
-      if (this.relevanceMeasure) {
-        body.relevanceSystem = this.relevanceMeasure
-      }
       this.isLoadingQueryMetrics.set(false)
       return this.apiService.getQueryMetrics(body)
     })
@@ -62,37 +52,50 @@ export class MetricsService {
     switchMap((body) => {
       if (!body) return of(void 0)
 
-      if (this.relevanceMeasure) {
-        body.relevanceSystem = this.relevanceMeasure
-      }
       this.isLoadingQueryMetrics.set(false)
       return this.apiService.getQueryMetrics(body)
     })
   )
   mfccbowMetrics = toSignal(this.mfccbowMetrics$)
 
+  mfccbowCosMetrics$: Observable<QueryMetrics | undefined> = this.recommenderService.mfccbowCosRecommendations$.pipe(
+    tap(() => this.isLoadingQueryMetrics.set(true)),
+    switchMap((body) => {
+      if (!body) return of(void 0)
+
+      this.isLoadingQueryMetrics.set(false)
+      return this.apiService.getQueryMetrics(body)
+    })
+  )
+  mfccbowCosMetrics = toSignal(this.mfccbowCosMetrics$)
+
   mfccstatMetrics$: Observable<QueryMetrics | undefined> = this.recommenderService.mfccstatRecommendations$.pipe(
     tap(() => this.isLoadingQueryMetrics.set(true)),
     switchMap((body) => {
       if (!body) return of(void 0)
 
-      if (this.relevanceMeasure) {
-        body.relevanceSystem = this.relevanceMeasure
-      }
       this.isLoadingQueryMetrics.set(false)
       return this.apiService.getQueryMetrics(body)
     })
   )
   mfccstatMetrics = toSignal(this.mfccstatMetrics$)
 
+  mfccstatCosMetrics$: Observable<QueryMetrics | undefined> = this.recommenderService.mfccstatCosRecommendations$.pipe(
+    tap(() => this.isLoadingQueryMetrics.set(true)),
+    switchMap((body) => {
+      if (!body) return of(void 0)
+
+      this.isLoadingQueryMetrics.set(false)
+      return this.apiService.getQueryMetrics(body)
+    })
+  )
+  mfccstatCosMetrics = toSignal(this.mfccstatCosMetrics$)
+
   resnetMetrics$: Observable<QueryMetrics | undefined> = this.recommenderService.resNetRecommendations$.pipe(
     tap(() => this.isLoadingQueryMetrics.set(true)),
     switchMap((body) => {
       if (!body) return of(void 0)
 
-      if (this.relevanceMeasure) {
-        body.relevanceSystem = this.relevanceMeasure
-      }
       this.isLoadingQueryMetrics.set(false)
       return this.apiService.getQueryMetrics(body)
     })
@@ -104,9 +107,6 @@ export class MetricsService {
     switchMap((body) => {
       if (!body) return of(void 0)
 
-      if (this.relevanceMeasure) {
-        body.relevanceSystem = this.relevanceMeasure
-      }
       this.isLoadingQueryMetrics.set(false)
       return this.apiService.getQueryMetrics(body)
     })
@@ -118,9 +118,6 @@ export class MetricsService {
     switchMap((body) => {
       if (!body) return of(void 0)
 
-      if (this.relevanceMeasure) {
-        body.relevanceSystem = this.relevanceMeasure
-      }
       this.isLoadingQueryMetrics.set(false)
       return this.apiService.getQueryMetrics(body)
     })

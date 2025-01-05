@@ -90,6 +90,22 @@ export class RecommenderService {
   )
   mfccbowRecommendations: Signal<RetrieveResult | undefined> = toSignal(this.mfccbowRecommendations$)
 
+  mfccbowCosRecommendations$: Observable<RetrieveResult | undefined> = this.getMFCCRecommendations$.pipe(
+    switchMap((model) => {
+      if (!model) return of(void 0)
+
+      this.isLoadingRecommendations.set(true)
+
+      return this.apiService.getMFCCBOWCosRecommendations(model.songId, model.count).pipe(
+        tap((res) => {
+          this.querySong.set(res.query_song)
+          this.isLoadingRecommendations.set(false)
+        })
+      )
+    })
+  )
+  mfccbowCosRecommendations: Signal<RetrieveResult | undefined> = toSignal(this.mfccbowCosRecommendations$)
+
   mfccstatRecommendations$: Observable<RetrieveResult | undefined> = this.getMFCCRecommendations$.pipe(
     switchMap((model) => {
       if (!model) return of(void 0)
@@ -105,6 +121,22 @@ export class RecommenderService {
     })
   )
   mfccstatRecommendations: Signal<RetrieveResult | undefined> = toSignal(this.mfccstatRecommendations$)
+
+  mfccstatCosRecommendations$: Observable<RetrieveResult | undefined> = this.getMFCCRecommendations$.pipe(
+    switchMap((model) => {
+      if (!model) return of(void 0)
+
+      this.isLoadingRecommendations.set(true)
+
+      return this.apiService.getMFCCSTATCosRecommendations(model.songId, model.count).pipe(
+        tap((res) => {
+          this.querySong.set(res.query_song)
+          this.isLoadingRecommendations.set(false)
+        })
+      )
+    })
+  )
+  mfccstatCosRecommendations: Signal<RetrieveResult | undefined> = toSignal(this.mfccstatCosRecommendations$)
 
   getResNetRecommendations: Subject<RetrieveApiModel | void> = new Subject<RetrieveApiModel | void>();
   getResNetRecommendations$ = this.getResNetRecommendations.asObservable();

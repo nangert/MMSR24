@@ -1,4 +1,4 @@
-import {Component, inject, Input, Signal} from '@angular/core';
+import {Component, effect, inject, Input, Signal} from '@angular/core';
 import {AccordionModule} from "primeng/accordion";
 import {PanelModule} from "primeng/panel";
 import {QueryMetricsComponent} from "../query-metrics/query-metrics.component";

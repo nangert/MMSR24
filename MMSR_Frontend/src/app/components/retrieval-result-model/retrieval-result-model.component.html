@@ -1,12 +1,10 @@
 <p-card [header]="retrievalSystem">
 
-  <ng-template>
+  <ng-container>
     @if (queryResult()) {
       <app-query-metrics [queryMetrics]="queryResult()!"/>
     }
-  </ng-template>
 
-  <ng-container>
     <p-table [value]="retrievalResult.result_songs">
       <!-- Header -->
       <ng-template pTemplate="header">
@@ -34,7 +32,7 @@
           </td>
           <td>
             <a [href]="song.url" target="_blank" rel="noopener noreferrer" class="p-button font-bold custom-link">
-              YouTube
+              Open
             </a>
           </td>
         </tr>
