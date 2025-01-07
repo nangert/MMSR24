@@ -241,6 +241,7 @@ def retrieve_songs(query_song: Song, n: number, model: str):
             print('vgg19')
             retrieved_songs = vgg19_retrieval_system.get_retrieval(query_song, n)
         case 'LambdaMART':
+            print('lambdamart')
             retrieved_songs = lambdamart_retrieval_system.get_retrieval(query_song, n)
         case _:
             print('default')
