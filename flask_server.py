@@ -186,8 +186,8 @@ def retrieve_vgg19():
 
     return retrieve_songs(query_song, n, model='VGG19')
 
-@app.route('/retrieve/lambdaMART', methods=['POST'])
-def retrieve_lambaMart():
+@app.route('/retrieve/lambda', methods=['POST'])
+def retrieve_lamdba_mart():
     query_song, n = get_query_data(request.get_json(), dataset)
 
     if not query_song:
