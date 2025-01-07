@@ -56,7 +56,7 @@ class Dataset:
 
     def __init__(self, info_file_path: str, genres_file_path: str, url_dataset_path: str,
                  metadata_dataset_path: str, bert_embeddings_path: str, resnet_embeddings_path: str, vgg19_embeddings_path: str,
-                 mfcc_bow_path: str, mfcc_stats_path: str, lambdamart_feats_path: str):
+                 mfcc_bow_path: str, mfcc_stats_path: str):
         """
         Initializes the Dataset by loading song information, genres, and BERT embeddings.
 
@@ -76,16 +76,15 @@ class Dataset:
         self.mfcc_embeddings_stat = {}
         self.resnet_embeddings = {}
         self.vgg19_embeddings = {}
-        self.lambdamart_features = {}
-        self.lambdamart_feature_dim = 0
+
 
         self.load_dataset(info_file_path, genres_file_path, url_dataset_path, metadata_dataset_path,
                           bert_embeddings_path, resnet_embeddings_path, vgg19_embeddings_path,
-                          mfcc_bow_path, mfcc_stats_path, lambdamart_feats_path)
+                          mfcc_bow_path, mfcc_stats_path)
 
     def load_dataset(self, info_file_path: str, genres_file_path: str, url_dataset_path: str,
                      metadata_dataset_path: str, bert_embeddings_path: str, resnet_embeddings_path: str,
-                     vgg19_embeddings_path: str, mfcc_bow_path: str, mfcc_stats_path: str, lambdamart_feats_path: str):
+                     vgg19_embeddings_path: str, mfcc_bow_path: str, mfcc_stats_path: str):
         genres_dict = self._load_dict_from_tsv(genres_file_path, 'id', 'genre', transform=lambda val: eval(val))
         url_dict = self._load_dict_from_tsv(url_dataset_path, 'id', 'url')
         metadata_dict = self._load_dict_from_tsv(metadata_dataset_path, 'id', 'spotify_id')
@@ -94,7 +93,6 @@ class Dataset:
         self.resnet_embeddings = self._load_and_normalize_embeddings(resnet_embeddings_path)
         self.vgg19_embeddings = self._load_and_normalize_embeddings(vgg19_embeddings_path)
         self.mfcc_embeddings_merged, self.mfcc_embeddings_bow, self.mfcc_embeddings_stat = self._load_and_normalize_mfcc(mfcc_bow_path, mfcc_stats_path)
-        self._load_lambdamart_features(lambdamart_feats_path)
 
         self.songs = self._load_song_info(info_file_path, genres_dict, url_dict, metadata_dict)
 
@@ -188,21 +186,6 @@ class Dataset:
                 )
                 songs.append(song)
         return songs
-
-    def _load_lambdamart_features(self, file_path: str):
-        """
-        Load the track features needed for the LambdaMART model.
-        Suppose each row: id, feat_1, feat_2, ..., feat_n
-        """
-        with open(file_path, 'r', encoding='utf-8') as f:
-            reader = csv.DictReader(f, delimiter='\t')
-            columns = reader.fieldnames[1:]  # skip 'id'
-            self.lambdamart_feature_dim = len(columns)
-
-            for row in reader:
-                tid = row['id']
-                feats = [float(row[col]) for col in columns]
-                self.lambdamart_features[tid] = np.array(feats, dtype=np.float32)
 
     def get_all_songs(self) -> List[Song]:
         """

@@ -1,91 +1,80 @@
-import os
-import numpy as np
-import joblib  # For loading the .pkl model
+# lambdamart_system.py
+import pickle
 from typing import List
 from Music4All import Dataset, Song
 
 
 class LambdaMARTRetrievalSystem:
     """
-    Retrieves songs using a pre-trained LambdaMART (LightGBM) ranker saved by allRank.
+    Retrieves songs using a pre-trained LightGBM-based LambdaMART model
+    that was trained on track-level MFCC BoW features from 'id_mfcc_bow.tsv.bz2'.
     """
 
     def __init__(self, dataset: Dataset, model_path: str, feature_dim: int):
         """
         Args:
-            dataset (Dataset): The dataset that provides track features.
-            model_path (str): Path to the directory containing the saved .pkl model.
-            feature_dim (int): The dimensionality of the feature vectors.
+            dataset (Dataset): The dataset (with track features in mfcc_embeddings_bow, etc.).
+            model_path (str): Path to the .pth file (pickled LightGBM model).
+            feature_dim (int): The dimensionality of the MFCC BoW feature vectors.
         """
         self.dataset = dataset
         self.feature_dim = feature_dim
-        self.model = self.load_model(model_path)
+        self.model = self._load_model(model_path)
 
-    def load_model(self, model_path: str):
+    @staticmethod
+    def _load_model(model_path: str):
         """
-        Loads the LightGBM model saved in .pkl format.
-
-        Args:
-            model_path (str): Path to the saved model directory.
-
-        Returns:
-            LightGBM model: The trained model.
+        Loads the trained LightGBM model (pickled) from disk.
         """
-        model_file = os.path.join(model_path, "model.pkl")
-        return joblib.load(model_file)
-
-    def _build_feature_vector(self, track_id: str) -> np.ndarray:
-        """
-        Retrieves the feature vector for a track.
-
-        Args:
-            track_id (str): The track's identifier.
-
-        Returns:
-            np.ndarray: The feature vector used by the ranker.
-        """
-        return self.dataset.lambdamart_features.get(track_id, np.zeros(self.feature_dim))
+        with open(model_path, "rb") as f:
+            model = pickle.load(f)
+        return model
 
     def get_retrieval(self, query_song: Song, N: int) -> List[Song]:
         """
         Ranks all other songs in the dataset with respect to the query_song.
+        For each candidate, runs the track features through the LightGBM
+        model to get a predicted score, then sorts descending.
 
         Args:
-            query_song (Song): The query song.
+            query_song (Song): The 'query' song.
             N (int): Number of similar songs to retrieve.
 
         Returns:
             List[Song]: The top N most relevant songs.
         """
         query_id = query_song.song_id
-        query_vec = self._build_feature_vector(query_id)
-
         candidates = []
-        for song in self.dataset.get_all_songs():
-            if song.song_id == query_id:
+
+        for candidate_song in self.dataset.get_all_songs():
+            candidate_id = candidate_song.song_id
+            # Skip the same song
+            if candidate_id == query_id:
                 continue
 
-            cand_vec = self._build_feature_vector(song.song_id)
+            # Check if track features are available
+            if candidate_id not in self.dataset.mfcc_embeddings_bow:
+                continue
 
-            # Combine features for ranking
-            combined_vec = np.concatenate([query_vec, cand_vec], axis=0)
-            score = self.model.predict(combined_vec.reshape(1, -1))[0]
+            mfcc_feats = self.dataset.mfcc_embeddings_bow[candidate_id]
+            # Ensure correct dimensionality
+            assert mfcc_feats.shape[0] == self.feature_dim, \
+                f"MFCC feature dimension mismatch for song {candidate_id}"
 
-            candidates.append((song, score))
+            # LightGBM expects a 2D array, e.g. shape (1, feature_dim)
+            feats_2d = mfcc_feats.reshape(1, -1)
+            score = self.model.predict(feats_2d)[0]
 
-        # Sort descending by predicted score
+            candidates.append((candidate_song, score))
+
+        # Sort by predicted score descending
         candidates.sort(key=lambda x: x[1], reverse=True)
-        return [c[0] for c in candidates[:N]]
+
+        return [song for (song, _) in candidates[:N]]
 
     def generate_retrieval_results(self, N: int) -> dict:
         """
         Generates retrieval results (top N) for every song in the dataset.
-
-        Args:
-            N (int): Number of songs to retrieve per query.
-
-        Returns:
-            dict: {query_song_id: {"query":..., "retrieved":[...]}, ...}
         """
         results = {}
         for query_song in self.dataset.get_all_songs():

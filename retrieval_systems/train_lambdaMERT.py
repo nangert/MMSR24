@@ -1,10 +1,3 @@
-# train_lambdaMERT.py
-
-"""
-Dependencies:
-  pip install allRank lightgbm
-"""
-
 import os
 import csv
 import bz2
@@ -16,17 +9,40 @@ import pandas as pd
 import subprocess
 import tempfile
 from tqdm import tqdm
+import lightgbm as lgb
+import pickle
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+"""
+Trains a LambdaMART (LambdaMERT) learning to rank model using LightGBM.
+Loads user-track interactions, track features, merges them, and trains a model
+with LightGBM's ranker objective. After training, saves the model as a .pth file.
+"""
 
 ###############################################################################
-# Step 1: Load user-track interactions from a .bz2 TSV
+# Data loading
 ###############################################################################
+def load_large_track_ids(meta_path: str) -> set:
+    """
+    Reads track metadata (the large file) and returns a set of valid track IDs.
+    """
+    df = pd.read_csv(meta_path, sep='\t')
+    return set(str(x) for x in df["id"].unique())
+
+
+def load_eval_track_ids(mmsr_path: str) -> set:
+    """
+    Reads the smaller subset (eval) track IDs (the MMSR part)
+    to exclude them from training.
+    """
+    df = pd.read_csv(mmsr_path, sep="\t")
+    return set(str(x) for x in df["id"].unique())
+
+
 def load_user_track_counts(counts_path: str, large_ids: set, exclude_ids: set) -> pd.DataFrame:
     """
-    Reads user-track interaction data from a BZ2-compressed TSV and filters out unwanted data.
-    Columns: user_id, track_id, count
-    Returns a DataFrame with columns [user_id, track_id, count].
+    Reads user-track interactions from a BZ2-compressed TSV.
+    Filters out track IDs not in large_ids, or in exclude_ids.
+    Returns a DataFrame [user_id, track_id, count].
     """
     rows = []
     with bz2.open(counts_path, mode="rt", encoding="utf-8") as f:
@@ -34,381 +50,206 @@ def load_user_track_counts(counts_path: str, large_ids: set, exclude_ids: set) -
         for row in reader:
             track_id = str(row["track_id"])
             if track_id not in large_ids or track_id in exclude_ids:
-                continue  # Exclude unwanted tracks
-
+                continue
             user_id = row["user_id"]
             c = float(row["count"])
+            # Clip the range to keep counts more stable:
             c = max(min(c, 100.0), 1e-6)
-
             rows.append((user_id, track_id, c))
+
     df = pd.DataFrame(rows, columns=["user_id", "track_id", "count"])
     return df
 
 
-###############################################################################
-# Step 2: Load track-level features
-###############################################################################
 def load_track_features(features_path: str, large_ids: set, exclude_ids: set) -> dict:
     """
-    Reads track-level features from a BZ2-compressed TSV, filtering out unwanted tracks.
-    Expects columns: [id, feat_1, feat_2, ..., feat_n]
-    Returns {track_id -> np.array([...features...])}.
+    Reads track-level features (MFCC BoW, for example) from a BZ2-compressed TSV.
+    Filters out track IDs not in large_ids, or in exclude_ids.
+    Returns a dict {track_id -> np.array(features)}.
     """
     feature_dict = {}
     with bz2.open(features_path, mode="rt", encoding="utf-8") as f:
         df = pd.read_csv(f, sep="\t")
         cols = list(df.columns)
-        feat_cols = cols[1:]  # everything except the 'id'
-
+        feat_cols = cols[1:]  # everything except 'id'
         for _, row in df.iterrows():
             track_id = str(row["id"])
             if track_id not in large_ids or track_id in exclude_ids:
-                continue  # Exclude unwanted tracks
+                continue
             feats = row[feat_cols].values.astype(float)
             feature_dict[track_id] = feats
     return feature_dict
 
 
 ###############################################################################
-# Step 3: Load track IDs from the large CSV
-###############################################################################
-def load_large_track_ids(meta_path: str) -> set:
-    """
-    Reads track metadata from 'id_information.csv' (109k+ IDs).
-    Returns a set of all valid track IDs in that CSV.
-    """
-    df = pd.read_csv(meta_path, sep='\t')
-    return set(str(x) for x in df["id"].unique())
-
-
-###############################################################################
-# Step 4: Load evaluation track IDs and exclude them from training
-###############################################################################
-def load_eval_track_ids(mmsr_path: str) -> set:
-    """
-    Reads the subset track IDs from 'id_information_mmsr.tsv'.
-    Returns a set of track IDs that must be excluded from training.
-    """
-    df = pd.read_csv(mmsr_path, sep="\t")
-    return set(str(x) for x in df["id"].unique())
-
-
-###############################################################################
-# Step 5: Merge user, track, and features, producing a DataFrame
-###############################################################################
-def build_ltr_dataframe(
-        df_counts: pd.DataFrame,
-        feat_dict: dict,
-        chunk_size: int = 100000
-) -> pd.DataFrame:
-    """
-    Merges user-track rows with track features to form a DataFrame:
-      user_id, track_id, [feature_1..feature_n], relevance_label
-    Processes the data in chunks to reduce memory usage and track progress.
-    """
-    rows = []
-    total_rows = len(df_counts)
-    print(f"Processing {total_rows} rows in chunks of {chunk_size}...")
-
-    for i in tqdm(range(0, total_rows, chunk_size), desc="Building LTR DataFrame"):
-        chunk = df_counts.iloc[i: i + chunk_size]
-        for _, row in chunk.iterrows():
-            user_id = row["user_id"]
-            track_id = str(row["track_id"])
-            label = float(row["count"])
-            feats = feat_dict[track_id]
-            merged_row = [user_id, track_id] + feats.tolist() + [label]
-            rows.append(merged_row)
-
-    # Build column names
-    if not rows:
-        raise ValueError("No valid training rows after merging. Check data paths.")
-    feat_count = len(rows[0]) - 3  # user_id + track_id + label => remainder = features
-    cols = ["user_id", "track_id"] + [f"feat_{i + 1}" for i in range(feat_count)] + ["label"]
-    df_merged = pd.DataFrame(rows, columns=cols)
-
-    return df_merged
-
-
-###############################################################################
-# Step 6: Convert to .libsvm format for allRank
-###############################################################################
-def df_to_libsvm(df: pd.DataFrame, out_file: str):
-    """
-    allRank expects .libsvm with group/query. Each row:
-      <label> qid:<user_id> <feature_index>:<feature_value> ...
-    We'll map user_id => integer for qid.
-    """
-    # Sort by user_id for consistency
-    df_sorted = df.sort_values("user_id").reset_index(drop=True)
-
-    # Map user IDs to an integer qid
-    unique_users = df_sorted["user_id"].unique()
-    user2qid = {uid: i for i, uid in enumerate(unique_users)}
-
-    # Build lines
-    with open(out_file, "w", encoding="utf-8") as f:
-        feat_cols = [c for c in df.columns if c.startswith("feat_")]
-        label_col = "label"
-        user_col = "user_id"
-        for _, row in df_sorted.iterrows():
-            label = row[label_col]
-            qid = user2qid[row[user_col]]
-            feats = []
-            for i, c in enumerate(feat_cols, start=1):
-                feats.append(f"{i}:{row[c]}")
-            line = f"{label} qid:{qid} " + " ".join(feats) + "\n"
-            f.write(line)
-
-    print(f"Saved .libsvm file to {out_file}")
-
-
-###############################################################################
-# Step 7: Build a minimal allRank config file
-###############################################################################
-def write_allrank_config(
-        combined_data_dir: str,
-        output_dir: str,
-        config_path: str,
-        slate_length: int
-):
-    """
-    Writes a JSON config for allRank that matches the official config.py structure
-    and expects train/val data to be found in one directory.
-    """
-    config = {
-        "data": {
-            "path": combined_data_dir,
-            "num_workers": 4,
-            "batch_size": 16,
-            "slate_length": slate_length,
-            "validation_ds_role": "test"  # instructs allRank that part of data is for testing/validation
-        },
-        "model": {
-            "fc_model": {
-                "sizes": [128, 64],
-                "input_norm": True,
-                "activation": "ReLU",
-                "dropout": 0.2
-            },
-            "transformer": {
-                "N": 2,
-                "d_ff": 256,
-                "h": 4,
-                "positional_encoding": {
-                    "strategy": "fixed",
-                    "max_indices": 512
-                },
-                "dropout": 0.1
-            },
-            "post_model": {
-                "output_activation": "Sigmoid",
-                "d_output": 1
-            }
-        },
-        "optimizer": {
-            "name": "Adam",
-            "args": {
-                "lr": 0.1,
-                "weight_decay": 0.0001
-            }
-        },
-        "training": {
-            "epochs": 20,
-            "gradient_clipping_norm": 10.0,
-            "early_stopping_patience": 3
-        },
-        "loss": {
-            "name": "neuralNDCG",
-            "args": {}
-        },
-        "metrics": ["ndcg_5", "ndcg_10"],
-        "lr_scheduler": {
-            "name": "StepLR",
-            "args": {
-                "step_size": 1,
-                "gamma": 0.8
-            }
-        },
-        "val_metric": "ndcg_10",  # Use correct key for validation metric
-        "expected_metrics": {
-            "train": {
-                "ndcg_10": 0.9  # Match this key to the result subkeys
-            },
-            "val": {
-                "ndcg_10": 0.9  # Match this key to the result subkeys
-            }
-        },
-        "detect_anomaly": True
-    }
-
-    with open(config_path, "w", encoding="utf-8") as f:
-        json.dump(config, f, indent=4)
-
-    print(f"allRank config written to {config_path}")
-
-
-###############################################################################
-# Step 8: Subprocess call to allRank
-###############################################################################
-def run_allrank(python_package_path: str, config_path: str, run_id: str, job_dir: str, ):
-    """
-    Calls allRank using a subprocess. This will train the model and store results in the job_dir.
-
-    Args:
-        allrank_package_path (str): The root path to the allRank package.
-        config_path (str): Path to the allRank config.json file.
-        run_id (str): A unique identifier for the training run.
-        job_dir (str): Directory where the results will be saved.
-    """
-    # Build the path to the main.py script within the allRank package
-    main_script_path = os.path.join(python_package_path, "allrank", "main.py")
-
-    # Use the Python interpreter currently running this script
-    python_exec = sys.executable
-
-    # Build the subprocess command
-    cmd = [
-        python_exec,  # Automatically use the correct Python executable
-        main_script_path,  # Path to the allRank main.py script
-        "--config-file-name", config_path,  # Path to the configuration file
-        "--run-id", run_id,  # Unique identifier for this run
-        "--job-dir", job_dir  # Directory for saving results
-    ]
-
-    # Print the constructed command for debugging
-    print("Running allRank command:", " ".join(cmd))
-
-    try:
-        # Run the command and check for errors
-        subprocess.run(cmd, check=True)
-        print("allRank training complete.")
-    except subprocess.CalledProcessError as e:
-        print(f"Error while running allRank: {e}")
-        sys.exit(1)
-    except Exception as e:
-        print(f"Unexpected error: {e}")
-        sys.exit(1)
-
-
-###############################################################################
-# Step 9: Stratify the interaction data
+# Data preprocessing
 ###############################################################################
 def stratified_subsample(df_counts: pd.DataFrame, sample_fraction: float = 0.1) -> pd.DataFrame:
     """
-    Performs stratified subsampling on the user-track interaction data.
-    Each user's interactions are subsampled at the given fraction.
-
-    Args:
-        df_counts (pd.DataFrame): The full user-track interaction dataset.
-        sample_fraction (float): The fraction of interactions to keep per user.
-
-    Returns:
-        pd.DataFrame: A stratified subsample of the dataset.
+    Subsamples user-track interactions at the given fraction.
+    Each user's subset is sampled proportionally.
     """
-    print(f"Subsampling {sample_fraction * 100}% of interactions per user...")
     subsampled = (
         df_counts
         .groupby("user_id", group_keys=False)
         .apply(lambda group: group.sample(frac=sample_fraction, random_state=100))
     )
-    print(f"Subsampled dataset size: {len(subsampled)} rows (original: {len(df_counts)})")
     return subsampled
+
+
+def build_ltr_dataframe(df_counts: pd.DataFrame, feat_dict: dict, chunk_size: int = 100000) -> pd.DataFrame:
+    """
+    Merges user-track interactions with track features.
+    Produces a DataFrame:
+      user_id, track_id, feat_1, feat_2, ..., feat_n, label
+    chunk_size controls memory usage by partial merging.
+    """
+    rows = []
+    total_rows = len(df_counts)
+    for i in tqdm(range(0, total_rows, chunk_size), desc="Merging interactions with features"):
+        chunk = df_counts.iloc[i: i + chunk_size]
+        for _, row in chunk.iterrows():
+            user_id = row["user_id"]
+            track_id = str(row["track_id"])
+            label = float(row["count"])  # Relevance label
+            if track_id not in feat_dict:
+                continue
+            feats = feat_dict[track_id]
+            merged_row = [user_id, track_id] + feats.tolist() + [label]
+            rows.append(merged_row)
+
+    # Determine feature count from first row
+    if not rows:
+        raise ValueError("No training rows found after merging. Check your data paths.")
+
+    feat_count = len(rows[0]) - 3  # user_id + track_id + label => remainder are features
+    cols = ["user_id", "track_id"] + [f"feat_{i+1}" for i in range(feat_count)] + ["label"]
+    df_merged = pd.DataFrame(rows, columns=cols)
+    return df_merged
 
 
 def find_longest_slate(df_merged: pd.DataFrame) -> int:
     """
-    Determines the longest slate (maximum number of tracks per user).
-
-    Args:
-        df_merged (pd.DataFrame): DataFrame containing user-track interactions.
-
-    Returns:
-        int: Length of the longest slate.
+    Identifies the largest group size (number of items per user).
+    Used to understand query grouping or potential padding (if needed).
     """
     slate_lengths = df_merged.groupby("user_id").size()
     longest_slate = slate_lengths.max()
-    print(f"The longest slate (query length) is: {longest_slate}")
     return int(longest_slate)
 
 
-def pad_queries(df: pd.DataFrame, slate_length: int, feat_count: int) -> pd.DataFrame:
+###############################################################################
+# Train with LightGBM's LambdaRank
+###############################################################################
+def train_lambdamart(
+    df_train: pd.DataFrame,
+    df_val: pd.DataFrame,
+    feature_cols: list,
+    label_col: str,
+    user_col: str,
+    num_boost_round: int = 1000
+):
     """
-    Pads each user's query to the specified slate_length with zero labels and features.
+    Trains a LambdaMART (LambdaRank) model using LightGBM with ranking objective.
 
-    Args:
-        df (pd.DataFrame): Input DataFrame with user-track interactions and features.
-        slate_length (int): Desired slate length.
-        feat_count (int): Number of feature columns.
-
-    Returns:
-        pd.DataFrame: Padded DataFrame.
+    df_train, df_val: training and validation sets
+    feature_cols: columns with numeric features
+    label_col: column name for relevance label
+    user_col: column name with user/group ID for grouping
     """
-    padded_rows = []
-    for user_id, group in df.groupby("user_id"):
-        rows = group.to_dict("records")
-        # If fewer rows than slate_length, pad with dummy rows
-        while len(rows) < slate_length:
-            dummy_row = {
-                "user_id": user_id,
-                "track_id": "PAD",  # Placeholder track ID
-                **{f"feat_{i + 1}": 0.0 for i in range(feat_count)},  # Zero for all features
-                "label": 0.0  # Zero relevance for padded positions
-            }
-            rows.append(dummy_row)
-        padded_rows.extend(rows)
-    return pd.DataFrame(padded_rows)
+    # Sort by user_col so that grouping information is consistent
+    df_train = df_train.sort_values(user_col)
+    df_val = df_val.sort_values(user_col)
+
+    X_train = df_train[feature_cols].values
+    y_train = df_train[label_col].values
+    # Grouping: number of items per user in the same order
+    train_groups = df_train.groupby(user_col).size().tolist()
+
+    X_val = df_val[feature_cols].values
+    y_val = df_val[label_col].values
+    val_groups = df_val.groupby(user_col).size().tolist()
+
+    # Create LightGBM datasets
+    train_dataset = lgb.Dataset(X_train, label=y_train, group=train_groups)
+    val_dataset = lgb.Dataset(X_val, label=y_val, group=val_groups, reference=train_dataset)
+
+    # Define the maximum label value
+    max_label_value = max(df_train[label_col].max(), df_val[label_col].max())
+
+    # Create a custom label_gain array
+    label_gain = [i for i in range(max_label_value + 1)]
+    print(f"Max Label value: {max_label_value}, Custom label_gain: {label_gain}")
+
+    # LightGBM parameters for LambdaRank
+    params = {
+        "objective": "lambdarank",
+        "metric": ["ndcg", "map"],  # Specify metrics to evaluate
+        "eval_at": [5, 10],
+        "learning_rate": 0.05,
+        "num_leaves": 31,
+        "min_data_in_leaf": 20,
+        "verbosity": 1,
+        "label_gain": label_gain
+    }
+
+    model = lgb.train(
+        params,
+        train_dataset,
+        num_boost_round=num_boost_round,
+        valid_sets=[train_dataset, val_dataset],
+        valid_names=["train", "val"],
+        verbose_eval=10
+    )
+
+    return model
 
 
 ###############################################################################
-# Main Script
+# Main script to run everything
 ###############################################################################
 def main():
-    python_package_path = "/home/jonasg/miniconda3/envs/onion/lib/python3.8/site-packages"
+    # Adapt these to your local structure
     train_counts_path = "dataset/train/userid_trackid_count.tsv.bz2"
     train_features_path = "dataset/train/id_mfcc_bow.tsv.bz2"
-    large_meta_path = "dataset/train/id_information.csv"  # large CSV with ~109k IDs
-    eval_subset_path = "../dataset/id_information_mmsr.tsv"  # file with 5,148 eval IDs
-    sample_fraction = 0.001  # Use x (10)% of interactions
+    large_meta_path = "dataset/train/id_information.csv"
+    eval_subset_path = "dataset/id_information_mmsr.tsv"
 
-    # Load large IDs and eval subset IDs
-    print("Loading large track IDs (from id_information.csv)...")
+    # Load sets of track IDs
+    print("Loading track ID sets...")
     large_ids = load_large_track_ids(large_meta_path)
-    print(f"  => {len(large_ids)} total track IDs in the large CSV.")
+    print(f"Loaded {len(large_ids)} track IDs from the large metadata file.")
 
-    print("Loading eval subset track IDs (from id_information_mmsr.tsv)...")
     eval_ids = load_eval_track_ids(eval_subset_path)
-    print(f"  => {len(eval_ids)} track IDs are in the eval subset (exclude them).")
+    print(f"Loaded {len(eval_ids)} evaluation track IDs to exclude from training.")
 
-    # Load filtered user-track counts and features
-    print("Loading user-track counts...")
+    # Load user-track interactions and track features
+    print("\nLoading user-track interactions and track features...")
     df_counts = load_user_track_counts(train_counts_path, large_ids, eval_ids)
-    print(f"  => {len(df_counts)} interaction rows loaded after filtering.")
+    print(f"Loaded {len(df_counts)} user-track interaction rows after filtering.")
 
-    print("Loading track features...")
     feat_dict = load_track_features(train_features_path, large_ids, eval_ids)
-    print(f"  => {len(feat_dict)} track feature vectors loaded after filtering.")
+    print(f"Loaded {len(feat_dict)} track feature vectors.")
 
-    # Step B: Subsample
+    # Subsample to reduce dataset size
+    print("\nSubsampling user-track interactions...")
+    sample_fraction = 0.01
+    original_count = len(df_counts)
     df_counts = stratified_subsample(df_counts, sample_fraction)
+    print(f"Subsampled from {original_count} to {len(df_counts)} interactions.")
 
-    # Merge
-    print("Building LTR DataFrame (excluding eval IDs)...")
+    # Build a DataFrame merging interactions & features
+    print("\nBuilding LTR DataFrame...")
     df_merged = build_ltr_dataframe(df_counts, feat_dict)
-    print(f"  => {len(df_merged)} rows remain after merging and exclusion.")
+    print(f"Built LTR DataFrame with {len(df_merged)} rows.")
 
-    longest_slate = find_longest_slate(df_merged)
-
-    print("Padding queries to slate length...")
-    feat_count = len([col for col in df_merged.columns if col.startswith("feat_")])
-    # df_merged = pad_queries(df_merged, slate_length=longest_slate, feat_count=feat_count)  # Use detected slate length
-    print(f"Padded DataFrame to {longest_slate} rows per query.")
-
-    # Train/val split
-    print("Splitting into train/val sets by user...")
+    print("\nSplitting data into train and validation sets...")
     unique_users = df_merged["user_id"].unique()
+    print(f"Found {len(unique_users)} unique users.")
+
     np.random.seed(100)
     np.random.shuffle(unique_users)
+
     val_ratio = 0.2
     val_size = int(len(unique_users) * val_ratio)
     val_users = set(unique_users[:val_size])
@@ -416,54 +257,39 @@ def main():
 
     df_train = df_merged[df_merged["user_id"].isin(train_users)].copy()
     df_val = df_merged[df_merged["user_id"].isin(val_users)].copy()
-    print(f"  => Train set size: {len(df_train)} rows, Val set size: {len(df_val)} rows.")
+    print(f"Split data into {len(df_train)} training rows and {len(df_val)} validation rows.")
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-        # Both train.libsvm and val.libsvm go into the same directory
-        train_libsvm = os.path.join(tmpdir, "train.libsvm")
-        val_libsvm = os.path.join(tmpdir, "val.libsvm")
+    # Identify feature columns
+    feature_cols = [c for c in df_train.columns if c.startswith("feat_")]
+    label_col = "label"
+    user_col = "user_id"
+    print(f"Identified {len(feature_cols)} feature columns.")
 
-        print("Converting train set to .libsvm...")
-        df_to_libsvm(df_train, train_libsvm)
-        print("Converting val set to .libsvm...")
-        df_to_libsvm(df_val, val_libsvm)
+    # Combine training and validation labels to ensure consistent mapping
+    all_labels = np.unique(np.concatenate([df_train[label_col].values, df_val[label_col].values]))
+    label_mapping = {label: idx for idx, label in enumerate(sorted(all_labels))}
+    print(f"Label mapping: {label_mapping}")
 
-        # In this example, we rely on allRank's internal logic to handle
-        # both files in the same directory. Typically you'd name them
-        # "train.txt" and "test.txt" or "val.txt", then point "path"
-        # to this directory.
-        os.rename(train_libsvm, os.path.join(tmpdir, "train.txt"))
-        os.rename(val_libsvm, os.path.join(tmpdir, "test.txt"))
+    # Map labels in training and validation datasets
+    df_train[label_col] = df_train[label_col].map(label_mapping)
+    df_val[label_col] = df_val[label_col].map(label_mapping)
 
-        job_dir = os.path.join(tmpdir, "allrank_out")
-        run_id = "lambdamart_test_run"
-        config_path = os.path.join(tmpdir, "config.json")
+    # Verify the new labels
+    print(f"New training labels: {df_train[label_col].unique()}")
+    print(f"New validation labels: {df_val[label_col].unique()}")
 
-        # We'll pass the entire directory as 'data.path'
-        # allRank expects "train.txt" and "test.txt" in that directory
-        write_allrank_config(
-            combined_data_dir=tmpdir,
-            output_dir=job_dir,
-            config_path=config_path,
-            slate_length=longest_slate
-        )
+    # Train the LambdaRank model
+    print("\nraining the LambdaRank model...")
+    model = train_lambdamart(df_train, df_val, feature_cols, label_col, user_col)
+    print("LambdaRank model training complete.")
 
-        run_allrank(python_package_path, config_path, run_id, job_dir)
-
-        print()
-        print("Training is done. The model and logs are in:", job_dir)
-
-        # Step G: Copy results to current directory
-        current_dir = os.getcwd()
-        target_dir = os.path.join(current_dir, "allrank_results")
-        if not os.path.exists(target_dir):
-            os.makedirs(target_dir)
-
-        print(f"Copying results from {job_dir} to {target_dir}...")
-        shutil.copytree(job_dir, target_dir, dirs_exist_ok=True)
-
-        print(f"Results copied to {target_dir}. You can now use them as needed.")
+    print("\nSaving the trained model...")
+    model_path = "lambdamart_model.pth"
+    with open(model_path, "wb") as f:
+        pickle.dump(model, f)
+    print(f"Model saved to {model_path}.")
 
 
 if __name__ == "__main__":
     main()
+

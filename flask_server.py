@@ -27,11 +27,10 @@ tfidf_embeddings_path = 'dataset/id_lyrics_tf-idf_mmsr.tsv'
 
 bow_path = 'dataset/id_mfcc_bow_mmsr.tsv'
 stats_path = 'dataset/id_mfcc_stats_mmsr.tsv'
-lambdamart_feats_path = 'dataset/id_lambdamart_feats.tsv'
 
 dataset = Dataset(info_dataset_path, genres_dataset_path, url_dataset_path,
                   metadata_dataset_path, bert_embeddings_path, resnet_embeddings_path,
-                  vgg19_embeddings_path, bow_path, stats_path, lambdamart_feats_path)
+                  vgg19_embeddings_path, bow_path, stats_path)
 
 bert_retrieval_system = EmbeddingRetrievalSystem(dataset, dataset.bert_embeddings, "Bert")
 resnet_retrieval_system = EmbeddingRetrievalSystem(dataset, dataset.resnet_embeddings, "ResNet")
@@ -40,8 +39,8 @@ vgg19_retrieval_system = EmbeddingRetrievalSystem(dataset, dataset.vgg19_embeddi
 baseline_retrieval_system = BaselineRetrievalSystem(dataset)
 mfcc_retrieval_system = MFCCRetrievalSystem(dataset)
 tfidf_retrieval_system = TFIDFRetrievalSystem(dataset, tfidf_embeddings_path)
-lambdamart_model_path = 'lambdamart.pkl'
-lambdamart_retrieval_system = LambdaMARTRetrievalSystem(dataset, lambdamart_model_path, 14)
+lambdamart_model = 'dataset/lambdamart_model.pth'
+lambdamart_retrieval_system = LambdaMARTRetrievalSystem(dataset, lambdamart_model, 14)
 
 @app.route('/calculate_metrics', methods=['POST'])
 def calculate_metrics():
