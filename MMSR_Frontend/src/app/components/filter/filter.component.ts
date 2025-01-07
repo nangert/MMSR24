@@ -8,6 +8,10 @@ import {InputTextModule} from "primeng/inputtext";
 import {FilterModel} from "../../models/filter.model";
 import {toSignal} from "@angular/core/rxjs-interop";
 import {RadioButtonModule} from "primeng/radiobutton";
+import {MetricsService} from "../../services/metrics.service";
+import {DataService} from "../../services/data.service";
+import {CheckboxModule} from "primeng/checkbox";
+import {SliderModule} from "primeng/slider";
 
 @Component({
   selector: 'app-filter',
@@ -17,7 +21,9 @@ import {RadioButtonModule} from "primeng/radiobutton";
     DropdownModule,
     InputGroupModule,
     InputTextModule,
-    RadioButtonModule
+    RadioButtonModule,
+    CheckboxModule,
+    SliderModule
   ],
   templateUrl: './filter.component.html',
   styleUrl: './filter.component.scss',
@@ -26,8 +32,7 @@ import {RadioButtonModule} from "primeng/radiobutton";
 export class FilterComponent implements OnInit{
   private formBuilder = inject(FormBuilder);
   recommenderService = inject(RecommenderService)
-
-  selectedCategory: any = null;
+  dataService = inject(DataService)
 
   categories: any[] = [
     { name: 'Baseline', key: 'Baseline' },
@@ -35,13 +40,14 @@ export class FilterComponent implements OnInit{
     { name: 'BERT', key: 'Bert' },
     { name: 'MFCC', key: 'MFCC' },
     { name: 'ResNet', key: 'ResNet' },
-    { name: 'VGG19', key: 'VGG19' }
+    { name: 'VGG19', key: 'VGG19' },
+    { name: 'LambdaMART', key: 'LambdaMART' }
   ];
 
   retrievalForm: FormGroup<RetrieveModel> = this.formBuilder.group({
     songId: '',
     count: 10,
-    retrievalSystem: 'B'
+    retrievalSystem: this.formBuilder.control([this.categories[0].key]),
   }) as FormGroup<RetrieveModel>;
 
   filterForm: FormGroup<FilterModel> = this.formBuilder.group({
@@ -52,12 +58,12 @@ export class FilterComponent implements OnInit{
   }) as FormGroup<FilterModel>;
 
   isLoading = computed(() => {
-    return this.recommenderService.isLoadingSongs() || this.recommenderService.isLoadingRecommendations()
+    return this.dataService.isLoadingSongs() || this.recommenderService.isLoadingRecommendations()
   })
 
   filterValuesChanged = toSignal(this.filterForm.valueChanges)
   mappedSongsToDropdown = computed(() => {
-    return this.recommenderService.songs();
+    return this.dataService.songs();
   })
   dropdownValues = computed(() => {
     this.filterValuesChanged()
@@ -76,19 +82,49 @@ export class FilterComponent implements OnInit{
   })
 
   ngOnInit(): void {
-    this.recommenderService.reloadSongs.next()
-    this.selectedCategory = this.categories[1];
+    this.dataService.reloadSongs.next()
   }
 
   retrieveSongs(): void {
     const model: RetrieveApiModel = {
       songId: this.retrievalForm.controls.songId.value,
-      count: this.retrievalForm.controls.count.value,
-      model: this.retrievalForm.controls.retrievalSystem.value.key
+      count: this.retrievalForm.controls.count.value
     }
 
     if (!model.songId || !model.count) return
 
-    this.recommenderService.getRandomRecommendations.next(model)
+    if (model.songId !== this.recommenderService.querySong()?.song_id) {
+      this.recommenderService.resetRecommendations()
+    }
+
+    for (let retrievalSystem of this.retrievalForm.controls.retrievalSystem.value) {
+      switch (retrievalSystem) {
+        case 'Baseline':
+          this.recommenderService.getBaselineRecommendations.next(model)
+          break
+        case 'TfIdf':
+          this.recommenderService.getTfIdfRecommendations.next(model)
+          break
+        case 'Bert':
+          this.recommenderService.getBertRecommendations.next(model)
+          break
+        case 'MFCC':
+          this.recommenderService.getMFCCRecommendations.next(model)
+          break
+        case 'ResNet':
+          this.recommenderService.getResNetRecommendations.next(model)
+          break
+        case 'VGG19':
+          this.recommenderService.getVGG19Recommendations.next(model)
+          break
+        case 'LambdaMART':
+          this.recommenderService.getLamdaMARTRecommendations.next(model)
+          break
+        default:
+          this.recommenderService.getBaselineRecommendations.next(model)
+      }
+    }
+
+
   }
 }

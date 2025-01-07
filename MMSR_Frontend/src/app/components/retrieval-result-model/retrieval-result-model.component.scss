@@ -1,0 +1,9 @@
+:host ::ng-deep .custom-link {
+  color: white;          /* Make the text white */
+  text-decoration: none; /* Remove the underline */
+}
+
+:host ::ng-deep .custom-link:hover {
+  text-decoration: none; /* Ensure no underline on hover */
+  opacity: 0.8;          /* Optional: Add a hover effect */
+}

@@ -1,0 +1,44 @@
+<p-card [header]="retrievalSystem">
+
+  <ng-container>
+    @if (queryResult()) {
+      <app-query-metrics [queryMetrics]="queryResult()!"/>
+    }
+
+    <p-table [value]="retrievalResult.result_songs">
+      <!-- Header -->
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Song</th>
+          <th>Album</th>
+          <th>Artist</th>
+          <th>Genres</th>
+          <th>YouTube</th>
+        </tr>
+      </ng-template>
+
+      <!-- Body -->
+      <ng-template pTemplate="body" let-song>
+        <tr>
+          <td>{{ song.song_title }}</td>
+          <td>{{ song.album_name }}</td>
+          <td>{{ song.artist }}</td>
+          <td>
+            @for (genre of song.genres; track genre) {
+              <p-tag [value]="genre" [severity]="checkIfGenreMatch(genre) ? 'success' : 'secondary'">
+
+              </p-tag>
+            }
+          </td>
+          <td>
+            <a [href]="song.url" target="_blank" rel="noopener noreferrer" class="p-button font-bold custom-link">
+              Open
+            </a>
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </ng-container>
+
+</p-card>
+

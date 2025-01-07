@@ -1,116 +1,101 @@
 
-<div class="container">
-  <div class="mb-3">
-    <h4>
-      Please use some filters before using the dropdown, otherwise it will take a while!
-    </h4>
-    <h4>
+<div class="container mb-3 mt-3">
+  <div >
+    <form (submit)="retrieveSongs(); $event.preventDefault()" [formGroup]="retrievalForm">
 
-      You can also enter a song_id directly instead of selecting a song from the dropdown
-    </h4>
-  </div>
-
-
-  <!-- Filters -->
-  <div class="d-flex align-items-center gap-3 mb-3">
-      <div class="form-group">
-        <label for="artist">Artist:</label>
-        <input
-          id="artist"
-          name="querySongId"
-          pInputText
-          class="form-control"
-          placeholder="Artist"
-          [formControl]="filterForm.controls.artist"
-        />
-      </div>
-      <div>
-        <label for="album">Album:</label>
-        <input
-          id="album"
-          name="querySongId"
-          type="text"
-          pInputText
-          class="form-control"
-          placeholder="Album"
-          [formControl]="filterForm.controls.album_name"
-        />
-
-      </div>
-      <div>
-        <label for="title">Song Title:</label>
-        <input
-          id="title"
-          name="querySongId"
-          type="text"
-          pInputText
-          class="form-control"
-          placeholder="Song title"
-          [formControl]="filterForm.controls.song_title"
-        />
-      </div>
-
-    <div class="flex flex-column gap-3">
-      @for (category of categories; track category.key) {
-        <div class="field-checkbox">
-          <p-radioButton
-            [inputId]="category.key"
-            name="category"
-            [value]="category"
-            [(ngModel)]="selectedCategory"
-            [formControl]="retrievalForm.controls.retrievalSystem"
+      <div class="d-flex align-items-center gap-3 mb-3">
+        <div class="form-group">
+          <label for="artist">Artist:</label>
+          <input
+            id="artist"
+            name="querySongId"
+            pInputText
+            class="form-control"
+            placeholder="Artist"
+            [formControl]="filterForm.controls.artist"
           />
-          <label [for]="category.key" class="ml-2">
-            {{ category.name }}
-          </label>
+        </div>
+        <div>
+          <label for="album">Album:</label>
+          <input
+            id="album"
+            name="querySongId"
+            type="text"
+            pInputText
+            class="form-control"
+            placeholder="Album"
+            [formControl]="filterForm.controls.album_name"
+          />
+
+        </div>
+        <div>
+          <label for="title">Song Title:</label>
+          <input
+            id="title"
+            name="querySongId"
+            type="text"
+            pInputText
+            class="form-control"
+            placeholder="Song title"
+            [formControl]="filterForm.controls.song_title"
+          />
+        </div>
+      </div>
+
+      <div class="form-group mb-3">
+        <p-dropdown
+          [options]="dropdownValues()"
+          optionLabel="name"
+          optionValue="value"
+          placeholder="Select a Song"
+          [formControl]="retrievalForm.controls.songId"
+          [virtualScroll]="true"
+          [virtualScrollItemSize]="40"
+        />
+      </div>
+
+      <label>
+        Pick retrieval systems:
+      </label>
+
+      <div class="d-flex flex-row gap-3 mb-3 mt-3">
+        @for (category of categories; track category.key) {
+          <div>
+            <p-checkbox
+              [inputId]="category.key"
+              name="category"
+              [value]="category.key"
+              [formControl]="retrievalForm.controls.retrievalSystem"
+            />
+            <label [for]="category.key" class="ms-1">
+              {{ category.name }}
+            </label>
+          </div>
+        }
+      </div>
+
+      @if (false) {
+        <div class="form-group mb-3">
+          <label for="querySongId">Query Song ID:</label>
+          <input
+            [formControl]="retrievalForm.controls.songId"
+            [value]="retrievalForm.controls.songId"
+            type="text"
+            id="querySongId"
+            class="form-control"
+            name="querySongId"
+            placeholder="Enter query song ID"
+            required
+          />
         </div>
       }
 
-    </div>
-
-  </div>
-
-
-  <div >
-    <div class="form-group mb-3">
-      <p-dropdown
-        [options]="dropdownValues()"
-        optionLabel="name"
-        optionValue="value"
-        placeholder="Select a Song"
-        [formControl]="retrievalForm.controls.songId"
-      />
-
-      Number of options: {{ dropdownValues().length }}
-    </div>
-
-    <form (submit)="retrieveSongs(); $event.preventDefault()" class="d-flex align-items-center gap-3 mb-3">
-
       <div class="form-group mb-3">
-        <label for="querySongId">Query Song ID:</label>
-        <input
-          [formControl]="retrievalForm.controls.songId"
-          [value]="retrievalForm.controls.songId"
-          type="text"
-          id="querySongId"
-          class="form-control"
-          name="querySongId"
-          placeholder="Enter query song ID"
-          required
-        />
-      </div>
+        <label class="mb-3">
+          Number of Songs to Retrieve: <b>{{retrievalForm.controls.count.value}}</b>
+        </label>
 
-      <div class="form-group mb-3">
-        <label for="nSongs">Number of Songs to Retrieve:</label>
-        <input
-          [formControl]="retrievalForm.controls.count"
-          type="number"
-          id="nSongs"
-          class="form-control"
-          name="nSongs"
-          min="1"
-          max="100"
-        />
+        <p-slider [formControl]="retrievalForm.controls.count" [min]="10" [max]="100"></p-slider>
       </div>
 
       <button
@@ -120,7 +105,17 @@
       >
         Retrieve Songs
       </button>
+
+
     </form>
+
+    <button
+      class="btn btn-primary mt-3 mb-3"
+      [disabled]="isLoading()"
+      (click)="recommenderService.resetRecommendations()"
+    >
+      Clear Results
+    </button>
   </div>
 
 </div>

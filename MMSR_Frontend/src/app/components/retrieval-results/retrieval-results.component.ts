@@ -2,18 +2,26 @@ import {Component, computed, inject} from '@angular/core';
 import {RecommenderService} from '../../services/recommender.service';
 import {AccordionModule} from "primeng/accordion";
 import {PanelModule} from "primeng/panel";
-import {RetrievedSongComponent} from "../retrieved-song/retrieved-song.component";
 import {Button} from "primeng/button";
 import {QueryMetricsComponent} from "../query-metrics/query-metrics.component";
+import {ChipModule} from "primeng/chip";
+import {TagModule} from "primeng/tag";
+import {DataService} from "../../services/data.service";
+import {MetricsService} from "../../services/metrics.service";
+import {RetrievalResultModelComponent} from "../retrieval-result-model/retrieval-result-model.component";
+import {CardModule} from "primeng/card";
 
 @Component({
   selector: 'app-retrieval-results',
   imports: [
     AccordionModule,
     PanelModule,
-    RetrievedSongComponent,
     Button,
-    QueryMetricsComponent
+    QueryMetricsComponent,
+    ChipModule,
+    TagModule,
+    RetrievalResultModelComponent,
+    CardModule
   ],
   templateUrl: './retrieval-results.component.html',
   styleUrl: './retrieval-results.component.scss',
@@ -21,9 +29,11 @@ import {QueryMetricsComponent} from "../query-metrics/query-metrics.component";
 })
 export class RetrievalResultsComponent {
   recommenderService = inject(RecommenderService)
+  dataService = inject(DataService)
+  metricService = inject(MetricsService)
 
   isLoading = computed(() => {
-    return this.recommenderService.isLoadingSongs() || this.recommenderService.isLoadingRecommendations()
+    return this.dataService.isLoadingSongs() || this.recommenderService.isLoadingRecommendations()
   })
 
 }

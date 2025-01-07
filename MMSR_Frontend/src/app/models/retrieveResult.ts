@@ -1,6 +1,7 @@
 export interface RetrieveResult {
   query_song: Song
   result_songs: Song[]
+  relevanceSystem: string
 }
 
 export interface Song {

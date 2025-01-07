@@ -19,14 +19,85 @@ export class RecommenderApiService {
     return this.http.get<Song[]>(`${this.baseUrl}/songs`);
   }
 
-  getRandomRecommendations(querySongId: string, N: number, model: string): Observable<RetrieveResult> {
-    const url = `${this.baseUrl}/retrieve`;
-    const body = {
+  getBaselineRecommendations(querySongId: string, N: number): Observable<RetrieveResult> {
+    const url = `${this.baseUrl}/retrieve/baseline`;
+    return this.http.post<RetrieveResult>(url, {
       query_song_id: querySongId,
-      N: N,
-      model: model
-    };
-    return this.http.post<RetrieveResult>(url, body);
+      N: N
+    });
+  }
+
+  getTfIdfRecommendations(querySongId: string, N: number): Observable<RetrieveResult> {
+    const url = `${this.baseUrl}/retrieve/tfidf`;
+    return this.http.post<RetrieveResult>(url, {
+      query_song_id: querySongId,
+      N: N
+    });
+  }
+
+  getBertRecommendations(querySongId: string, N: number): Observable<RetrieveResult> {
+    const url = `${this.baseUrl}/retrieve/bert`;
+    return this.http.post<RetrieveResult>(url, {
+      query_song_id: querySongId,
+      N: N
+    });
+  }
+
+  getMFCCBOWRecommendations(querySongId: string, N: number): Observable<RetrieveResult> {
+    const url = `${this.baseUrl}/retrieve/mfcc-bow`;
+    return this.http.post<RetrieveResult>(url, {
+      query_song_id: querySongId,
+      N: N
+    });
+  }
+
+  getMFCCBOWCosRecommendations(querySongId: string, N: number): Observable<RetrieveResult> {
+    const url = `${this.baseUrl}/retrieve/mfcc-bow-cos`;
+    return this.http.post<RetrieveResult>(url, {
+      query_song_id: querySongId,
+      N: N
+    });
+  }
+
+
+  getMFCCSTATRecommendations(querySongId: string, N: number): Observable<RetrieveResult> {
+    const url = `${this.baseUrl}/retrieve/mfcc-stat`;
+    return this.http.post<RetrieveResult>(url, {
+      query_song_id: querySongId,
+      N: N
+    });
+  }
+
+  getMFCCSTATCosRecommendations(querySongId: string, N: number): Observable<RetrieveResult> {
+    const url = `${this.baseUrl}/retrieve/mfcc-stat-cos`;
+    return this.http.post<RetrieveResult>(url, {
+      query_song_id: querySongId,
+      N: N
+    });
+  }
+
+  getResNetRecommendations(querySongId: string, N: number): Observable<RetrieveResult> {
+    const url = `${this.baseUrl}/retrieve/resnet`;
+    return this.http.post<RetrieveResult>(url, {
+      query_song_id: querySongId,
+      N: N
+    });
+  }
+
+  getVGG19Recommendations(querySongId: string, N: number): Observable<RetrieveResult> {
+    const url = `${this.baseUrl}/retrieve/vgg19`;
+    return this.http.post<RetrieveResult>(url, {
+      query_song_id: querySongId,
+      N: N
+    });
+  }
+
+  getLamdaMARTRecommendations(querySongId: string, N: number): Observable<RetrieveResult> {
+    const url = `${this.baseUrl}/retrieve/lamdaMART`;
+    return this.http.post<RetrieveResult>(url, {
+      query_song_id: querySongId,
+      N: N
+    });
   }
 
   getQueryMetrics(body: RetrieveResult): Observable<QueryMetrics> {
