@@ -198,8 +198,7 @@ def train_lambdamart(
         train_dataset,
         num_boost_round=num_boost_round,
         valid_sets=[train_dataset, val_dataset],
-        valid_names=["train", "val"],
-        verbose_eval=10
+        valid_names=["train", "val"]
     )
 
     return model
