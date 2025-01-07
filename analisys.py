@@ -20,8 +20,7 @@ dataset = Dataset(
     'dataset/id_resnet_mmsr.tsv',
     'dataset/id_vgg19_mmsr.tsv',
     'dataset/id_mfcc_bow_mmsr.tsv',
-    'dataset/id_mfcc_stats_mmsr.tsv',
-    'dataset/id_lambdamart_feats.tsv',
+    'dataset/id_mfcc_stats_mmsr.tsv'
 )
 
 # Initialize retrieval systems
@@ -31,7 +30,7 @@ resnet_system = EmbeddingRetrievalSystem(dataset, dataset.resnet_embeddings, "Re
 vgg19_system = EmbeddingRetrievalSystem(dataset, dataset.vgg19_embeddings, "VGG19")
 mfcc_system = MFCCRetrievalSystem(dataset)
 tfidf_system = TFIDFRetrievalSystem(dataset, 'dataset/id_lyrics_tf-idf_mmsr.tsv')
-lambdamart_system = LambdaMARTRetrievalSystem(dataset, 'lambdamart.pkl', dataset.lambdamart_feature_dim)
+lambdamart_system = LambdaMARTRetrievalSystem(dataset, 'dataset/lambdamart_model.pth', dataset.lambdamart_feature_dim)
 
 metrics_instance = Metrics()
 

@@ -76,7 +76,7 @@ class Dataset:
         self.mfcc_embeddings_stat = {}
         self.resnet_embeddings = {}
         self.vgg19_embeddings = {}
-
+        self.lambdamart_feature_dim = 500
 
         self.load_dataset(info_file_path, genres_file_path, url_dataset_path, metadata_dataset_path,
                           bert_embeddings_path, resnet_embeddings_path, vgg19_embeddings_path,

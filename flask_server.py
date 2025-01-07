@@ -40,7 +40,7 @@ baseline_retrieval_system = BaselineRetrievalSystem(dataset)
 mfcc_retrieval_system = MFCCRetrievalSystem(dataset)
 tfidf_retrieval_system = TFIDFRetrievalSystem(dataset, tfidf_embeddings_path)
 lambdamart_model = 'dataset/lambdamart_model.pth'
-lambdamart_retrieval_system = LambdaMARTRetrievalSystem(dataset, lambdamart_model, 14)
+lambdamart_retrieval_system = LambdaMARTRetrievalSystem(dataset, lambdamart_model, dataset.lambdamart_feature_dim)
 
 @app.route('/calculate_metrics', methods=['POST'])
 def calculate_metrics():
