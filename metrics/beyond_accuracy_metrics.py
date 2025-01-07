@@ -1,6 +1,7 @@
 import numpy as np
 from typing import List, Dict
 
+
 class BeyondAccuracyMetrics:
     """
     A class to calculate beyond-accuracy metrics for information retrieval systems.

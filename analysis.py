@@ -1,3 +1,5 @@
+import os
+
 import pandas as pd
 import matplotlib.pyplot as plt
 from retrieval_systems.baseline_system import BaselineRetrievalSystem
@@ -8,7 +10,6 @@ from retrieval_systems.tfidf_retrieval import TFIDFRetrievalSystem
 from Music4All import Dataset
 from metrics.accuracy_metrics import Metrics
 from metrics.beyond_accuracy_metrics import BeyondAccuracyMetrics
-
 
 # Load the dataset and initialize retrieval systems
 dataset = Dataset(
@@ -77,13 +78,24 @@ for system_name, system in retrieval_systems.items():
         )
 
         # Compute beyond-accuracy metrics
-        catalog = dataset.get_all_songs()  # Use the full dataset for coverage calculation
-        user_history = query_genres  # Using genres as the user's history
+        catalog_popularity = {
+            song.song_id: song.popularity
+            for song in dataset.get_all_songs()
+        }
+
+        catalog_dicts = [s.to_dict() for s in dataset.get_all_songs()]
+        retrieved_songs_dicts = [s.to_dict() for s in retrieved_songs]
+        user_history_dicts = [query_song.to_dict()]
+
         beyond_metrics = {
-            "diversity": BeyondAccuracyMetrics.diversity(retrieved_songs),
-            "novelty": BeyondAccuracyMetrics.novelty(retrieved_songs, user_history),
-            "coverage": BeyondAccuracyMetrics.coverage(retrieved_songs, catalog),
-            "serendipity": BeyondAccuracyMetrics.serendipity(retrieved_songs, user_history),
+            "diversity": BeyondAccuracyMetrics.diversity(retrieved_songs_dicts),
+            "novelty": BeyondAccuracyMetrics.novelty(retrieved_songs_dicts, catalog_popularity),
+            "coverage": BeyondAccuracyMetrics.coverage(retrieved_songs_dicts, len(catalog_dicts)),
+            "serendipity": BeyondAccuracyMetrics.serendipity(
+                retrieved_songs_dicts,
+                user_history_dicts,
+                catalog_dicts
+            )
         }
 
         results.append({
@@ -95,23 +107,52 @@ for system_name, system in retrieval_systems.items():
 
 # Store metrics in a DataFrame
 df_results = pd.DataFrame(results)
-print("\nEvaluation Results:")
-print(df_results)
+print("\nEvaluation Results are stored in evaluation_results.csv")
+df_results.to_csv(os.path.join('results', 'evaluation_results.csv'), index=False)
+
+
+# Function to annotate bars with values
+def annotate_bars(ax):
+    for bar in ax.patches:
+        value = bar.get_height()  # Get bar height
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,  # x-coordinate (center of the bar)
+            value,  # y-coordinate (height of the bar)
+            f"{value:.3f}",  # Format to 3 decimal places
+            ha="center",  # Horizontal alignment
+            va="bottom",  # Vertical alignment
+            fontsize=10,  # Font size
+            color="black"  # Text color
+        )
+
 
 # Visualization of Accuracy Metrics
 for metric in ["precision_at_k", "recall_at_k", "ndcg_at_k", "mrr"]:
     plt.figure()
-    df_results.groupby("system")[metric].mean().plot(kind="bar")
+    grouped = df_results.groupby("system")[metric].mean().reset_index()
+    ax = plt.bar(grouped["system"], grouped[metric])
     plt.title(f"Average {metric.upper()} by System")
     plt.ylabel(metric.upper())
     plt.xlabel("Retrieval System")
+    plt.xticks(rotation=45, ha="right")
+    plt.tight_layout()
+    annotate_bars(plt.gca())  # Annotate bars
+    # Save the plot
+    plt.savefig(f"results/{metric}_by_system.png")
     plt.show()
 
 # Visualization of Beyond-Accuracy Metrics
 for metric in ["diversity", "novelty", "coverage", "serendipity"]:
     plt.figure()
-    df_results.groupby("system")[metric].mean().plot(kind="bar")
+    grouped = df_results.groupby("system")[metric].mean().reset_index()
+    ax = plt.bar(grouped["system"], grouped[metric])
     plt.title(f"Average {metric.capitalize()} by System")
     plt.ylabel(metric.capitalize())
     plt.xlabel("Retrieval System")
+    plt.xticks(rotation=45, ha="right")
+    plt.tight_layout()
+    annotate_bars(plt.gca())  # Annotate bars
+    # Save the plot
+    plt.savefig(f"results/{metric}_by_system.png")
     plt.show()
+

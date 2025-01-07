@@ -12,7 +12,7 @@ class Song:
     Represents a song with its associated metadata.
     """
 
-    def __init__(self, song_id: str, artist: str, song_title: str, album_name: str, genres: List[str], url: str, spotify_id: str):
+    def __init__(self, song_id: str, artist: str, song_title: str, album_name: str, genres: List[str], url: str, spotify_id: str, popularity: float):
         """
         Initializes a Song instance.
 
@@ -22,6 +22,9 @@ class Song:
             song_title (str): The title of the song.
             album_name (str): The name of the album.
             genres (List[str]): A list of genres associated with the song.
+            url (str): A URL to the song.
+            spotify_id (str): The Spotify ID of the song.
+            popularity (float): The popularity of the song.
         """
         self.song_id = song_id
         self.artist = artist
@@ -30,6 +33,7 @@ class Song:
         self.genres = genres
         self.url = url
         self.spotify_id = spotify_id
+        self.popularity = popularity
 
     def to_dict(self) -> Dict[str, any]:
         """
@@ -46,6 +50,7 @@ class Song:
             'genres': self.genres,
             'url': self.url,
             'spotify_id': self.spotify_id,
+            'popularity': self.popularity
         }
 
 
@@ -88,13 +93,14 @@ class Dataset:
         genres_dict = self._load_dict_from_tsv(genres_file_path, 'id', 'genre', transform=lambda val: eval(val))
         url_dict = self._load_dict_from_tsv(url_dataset_path, 'id', 'url')
         metadata_dict = self._load_dict_from_tsv(metadata_dataset_path, 'id', 'spotify_id')
+        popularity_dict = self._load_dict_from_tsv(metadata_dataset_path, 'id', 'popularity', transform=float)
 
         self.bert_embeddings = self._load_and_normalize_embeddings(bert_embeddings_path)
         self.resnet_embeddings = self._load_and_normalize_embeddings(resnet_embeddings_path)
         self.vgg19_embeddings = self._load_and_normalize_embeddings(vgg19_embeddings_path)
         self.mfcc_embeddings_merged, self.mfcc_embeddings_bow, self.mfcc_embeddings_stat = self._load_and_normalize_mfcc(mfcc_bow_path, mfcc_stats_path)
 
-        self.songs = self._load_song_info(info_file_path, genres_dict, url_dict, metadata_dict)
+        self.songs = self._load_song_info(info_file_path, genres_dict, url_dict, metadata_dict, popularity_dict)
 
 
     @staticmethod
@@ -169,7 +175,7 @@ class Dataset:
 
 
     @staticmethod
-    def _load_song_info(info_file_path: str, genres_dict: Dict[str, List[str]], url_dict: Dict[str, str], metadata_dict: Dict[str, str]) -> List[Song]:
+    def _load_song_info(info_file_path: str, genres_dict: Dict[str, List[str]], url_dict: Dict[str, str], metadata_dict: Dict[str, str], popularity_dict: Dict[str, float]) -> List[Song]:
         songs = []
         with open(info_file_path, 'r', encoding='utf-8') as tsvfile:
             reader = csv.DictReader(tsvfile, delimiter='\t')
@@ -182,7 +188,8 @@ class Dataset:
                     album_name=row.get('album_name', ''),
                     genres=genres_dict.get(song_id, []),
                     url=url_dict.get(song_id, ''),
-                    spotify_id=metadata_dict.get(song_id, '')
+                    spotify_id=metadata_dict.get(song_id, ''),
+                    popularity=popularity_dict.get(song_id, 0.0)
                 )
                 songs.append(song)
         return songs

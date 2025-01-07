@@ -57,10 +57,6 @@ class LambdaMARTRetrievalSystem:
                 continue
 
             mfcc_feats = self.dataset.mfcc_embeddings_bow[candidate_id]
-            # Ensure correct dimensionality
-            print(mfcc_feats.shape, self.feature_dim)
-            assert mfcc_feats.shape[0] == self.feature_dim, \
-                f"MFCC feature dimension mismatch for song {candidate_id}"
 
             # LightGBM expects a 2D array, e.g. shape (1, feature_dim)
             feats_2d = mfcc_feats.reshape(1, -1)
