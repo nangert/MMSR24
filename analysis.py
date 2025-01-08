@@ -1,11 +1,11 @@
 import os
-
+import random
 import pandas as pd
 import matplotlib.pyplot as plt
 from retrieval_systems.baseline_system import BaselineRetrievalSystem
 from retrieval_systems.embedding_system import EmbeddingRetrievalSystem
 from retrieval_systems.mfcc_retrieval import MFCCRetrievalSystem
-from retrieval_systems.lambdamart_system import LambdaMARTRetrievalSystem
+from retrieval_systems.lambdarank_system import LambdaRankRetrievalSystem
 from retrieval_systems.tfidf_retrieval import TFIDFRetrievalSystem
 from Music4All import Dataset
 from metrics.accuracy_metrics import Metrics
@@ -31,12 +31,12 @@ resnet_system = EmbeddingRetrievalSystem(dataset, dataset.resnet_embeddings, "Re
 vgg19_system = EmbeddingRetrievalSystem(dataset, dataset.vgg19_embeddings, "VGG19")
 mfcc_system = MFCCRetrievalSystem(dataset)
 tfidf_system = TFIDFRetrievalSystem(dataset, 'dataset/id_lyrics_tf-idf_mmsr.tsv')
-lambdamart_system = LambdaMARTRetrievalSystem(dataset, 'dataset/lambdamart_model.pth', dataset.lambdamart_feature_dim)
+lambdarank_system = LambdaRankRetrievalSystem(dataset, 'dataset/lambdarank_model.pth', dataset.lambdarank_feature_dim)
 
 metrics_instance = Metrics()
 
 # Configuration
-NUM_REQUESTS = 10  # Number of queries to evaluate
+NUM_REQUESTS = 100  # Number of queries to evaluate
 TOP_K = 10  # Top-K results to evaluate
 retrieval_systems = {
     "Baseline": baseline_system,
@@ -45,20 +45,24 @@ retrieval_systems = {
     "VGG19": vgg19_system,
     "MFCC": mfcc_system,
     "TFIDF": tfidf_system,
-    "LambdaMART": lambdamart_system,
+    "LambdaRank": lambdarank_system,
 }
 results = []
 
 # Generate and evaluate retrieval results
 for system_name, system in retrieval_systems.items():
     print(f"Evaluating {system_name}...")
-    for idx, query_song in enumerate(dataset.get_all_songs()[:NUM_REQUESTS]):
+
+    random.seed(100)
+    query_songs = random.sample(dataset.get_all_songs(), NUM_REQUESTS)
+
+    for query_song in query_songs:
         # Use the appropriate retrieval method based on the system
         if system_name == "MFCC":
             retrieved_songs = system.recommend_similar_songs_stat_cos(query_song, TOP_K)
         elif system_name == "TFIDF":
             retrieved_songs = system.retrieve(query_song.song_id, TOP_K)
-        elif system_name == "LambdaMART":
+        elif system_name == "LambdaRank":
             retrieved_songs = system.get_retrieval(query_song, TOP_K)
         else:
             retrieved_songs = system.get_retrieval(query_song, TOP_K)
@@ -114,15 +118,15 @@ df_results.to_csv(os.path.join('results', 'evaluation_results.csv'), index=False
 # Function to annotate bars with values
 def annotate_bars(ax):
     for bar in ax.patches:
-        value = bar.get_height()  # Get bar height
+        value = bar.get_height()
         ax.text(
             bar.get_x() + bar.get_width() / 2,  # x-coordinate (center of the bar)
             value,  # y-coordinate (height of the bar)
-            f"{value:.3f}",  # Format to 3 decimal places
-            ha="center",  # Horizontal alignment
-            va="bottom",  # Vertical alignment
-            fontsize=10,  # Font size
-            color="black"  # Text color
+            f"{value:.3f}",
+            ha="center",
+            va="bottom",
+            fontsize=10,
+            color="black"
         )
 
 

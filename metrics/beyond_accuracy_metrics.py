@@ -62,7 +62,14 @@ class BeyondAccuracyMetrics:
         Returns:
             float: Novelty value.
         """
-        inversed_popularities = [1.0 / catalog_popularity.get(song['song_id'], 1) for song in retrieved_songs]
+        inversed_popularities = []
+        for song in retrieved_songs:
+            popularity = catalog_popularity.get(song['song_id'], 1)  # Default to 1 if not found
+            if popularity > 0:  # Avoid division by zero
+                inversed_popularities.append(1.0 / popularity)
+            else:
+                inversed_popularities.append(0.0)
+
         return np.mean(inversed_popularities) if inversed_popularities else 0.0
 
     @staticmethod

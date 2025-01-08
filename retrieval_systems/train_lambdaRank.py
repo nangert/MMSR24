@@ -13,7 +13,7 @@ import lightgbm as lgb
 import pickle
 
 """
-Trains a LambdaMART (LambdaMERT) learning to rank model using LightGBM.
+Trains a LambdaRank learning to rank model using LightGBM.
 Loads user-track interactions, track features, merges them, and trains a model
 with LightGBM's ranker objective. After training, saves the model as a .pth file.
 """
@@ -141,7 +141,7 @@ def find_longest_slate(df_merged: pd.DataFrame) -> int:
 ###############################################################################
 # Train with LightGBM's LambdaRank
 ###############################################################################
-def train_lambdamart(
+def train_lambdarank(
     df_train: pd.DataFrame,
     df_val: pd.DataFrame,
     feature_cols: list,
@@ -150,7 +150,7 @@ def train_lambdamart(
     num_boost_round: int = 1000
 ):
     """
-    Trains a LambdaMART (LambdaRank) model using LightGBM with ranking objective.
+    Trains a LambdaRank model using LightGBM with ranking objective.
 
     df_train, df_val: training and validation sets
     feature_cols: columns with numeric features
@@ -279,11 +279,11 @@ def main():
 
     # Train the LambdaRank model
     print("\nraining the LambdaRank model...")
-    model = train_lambdamart(df_train, df_val, feature_cols, label_col, user_col)
+    model = train_lambdarank(df_train, df_val, feature_cols, label_col, user_col)
     print("LambdaRank model training complete.")
 
     print("\nSaving the trained model...")
-    model_path = "lambdamart_model.pth"
+    model_path = "lambdarank_model.pth"
     with open(model_path, "wb") as f:
         pickle.dump(model, f)
     print(f"Model saved to {model_path}.")

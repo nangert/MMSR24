@@ -8,7 +8,7 @@ from flask_server_utilities import get_query_data
 from metrics.accuracy_metrics import Metrics
 from retrieval_systems.baseline_system import BaselineRetrievalSystem
 from retrieval_systems.embedding_system import EmbeddingRetrievalSystem
-from retrieval_systems.lambdamart_system import LambdaMARTRetrievalSystem
+from retrieval_systems.lambdarank_system import LambdaRankRetrievalSystem
 from retrieval_systems.mfcc_retrieval import MFCCRetrievalSystem
 from retrieval_systems.tfidf_retrieval import TFIDFRetrievalSystem
 
@@ -39,8 +39,8 @@ vgg19_retrieval_system = EmbeddingRetrievalSystem(dataset, dataset.vgg19_embeddi
 baseline_retrieval_system = BaselineRetrievalSystem(dataset)
 mfcc_retrieval_system = MFCCRetrievalSystem(dataset)
 tfidf_retrieval_system = TFIDFRetrievalSystem(dataset, tfidf_embeddings_path)
-lambdamart_model = 'dataset/lambdamart_model.pth'
-lambdamart_retrieval_system = LambdaMARTRetrievalSystem(dataset, lambdamart_model, dataset.lambdamart_feature_dim)
+lambdarank_model = 'dataset/lambdarank_model.pth'
+lambdarank_retrieval_system = LambdaRankRetrievalSystem(dataset, lambdarank_model, dataset.lambdarank_feature_dim)
 
 @app.route('/calculate_metrics', methods=['POST'])
 def calculate_metrics():
@@ -193,7 +193,7 @@ def retrieve_lamdba_mart():
     if not query_song:
         return jsonify({"error": "Query song not found"}), 404
 
-    return retrieve_songs(query_song, n, model='LambdaMART')
+    return retrieve_songs(query_song, n, model='LambdaRank')
 
 def retrieve_songs(query_song: Song, n: number, model: str):
     match model:
@@ -240,9 +240,9 @@ def retrieve_songs(query_song: Song, n: number, model: str):
         case 'VGG19':
             print('vgg19')
             retrieved_songs = vgg19_retrieval_system.get_retrieval(query_song, n)
-        case 'LambdaMART':
-            print('lambdamart')
-            retrieved_songs = lambdamart_retrieval_system.get_retrieval(query_song, n)
+        case 'LambdaRank':
+            print('lambdarank')
+            retrieved_songs = lambdarank_retrieval_system.get_retrieval(query_song, n)
         case _:
             print('default')
             retrieved_songs = bert_retrieval_system.get_retrieval(query_song, n)
