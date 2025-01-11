@@ -61,7 +61,7 @@ class Dataset:
 
     def __init__(self, info_file_path: str, genres_file_path: str, url_dataset_path: str,
                  metadata_dataset_path: str, bert_embeddings_path: str, resnet_embeddings_path: str, vgg19_embeddings_path: str,
-                 mfcc_bow_path: str, mfcc_stats_path: str):
+                 mfcc_bow_path: str, mfcc_stats_path: str, word2vec_embeddings_path: str):
         """
         Initializes the Dataset by loading song information, genres, and BERT embeddings.
 
@@ -73,6 +73,9 @@ class Dataset:
             bert_embeddings_path (str): Path to the TSV file containing precomputed BERT embeddings.
             resnet_embeddings_path (str): Path to the TSV file containing precomputed ResNet embeddings.
             vgg19_embeddings_path (str): Path to the TSV file containing precomputed VGG19 embeddings.
+            mfcc_bow_path (str): Path to the TSV file containing precomputed MFCC BoW embeddings.
+            mfcc_stats_path (str): Path to the TSV file containing precomputed MFCC statistical embeddings.
+
         """
         self.songs = []
         self.bert_embeddings = {}
@@ -81,15 +84,16 @@ class Dataset:
         self.mfcc_embeddings_stat = {}
         self.resnet_embeddings = {}
         self.vgg19_embeddings = {}
+        self.word2vec_embeddings = {}
         self.lambdarank_feature_dim = 500
 
         self.load_dataset(info_file_path, genres_file_path, url_dataset_path, metadata_dataset_path,
                           bert_embeddings_path, resnet_embeddings_path, vgg19_embeddings_path,
-                          mfcc_bow_path, mfcc_stats_path)
+                          mfcc_bow_path, mfcc_stats_path, word2vec_embeddings_path)
 
     def load_dataset(self, info_file_path: str, genres_file_path: str, url_dataset_path: str,
                      metadata_dataset_path: str, bert_embeddings_path: str, resnet_embeddings_path: str,
-                     vgg19_embeddings_path: str, mfcc_bow_path: str, mfcc_stats_path: str):
+                     vgg19_embeddings_path: str, mfcc_bow_path: str, mfcc_stats_path: str, word2vec_path: str):
         genres_dict = self._load_dict_from_tsv(genres_file_path, 'id', 'genre', transform=lambda val: eval(val))
         url_dict = self._load_dict_from_tsv(url_dataset_path, 'id', 'url')
         metadata_dict = self._load_dict_from_tsv(metadata_dataset_path, 'id', 'spotify_id')
@@ -98,10 +102,10 @@ class Dataset:
         self.bert_embeddings = self._load_and_normalize_embeddings(bert_embeddings_path)
         self.resnet_embeddings = self._load_and_normalize_embeddings(resnet_embeddings_path)
         self.vgg19_embeddings = self._load_and_normalize_embeddings(vgg19_embeddings_path)
+        self.word2vec_embeddings = self._load_and_normalize_embeddings(word2vec_path)
         self.mfcc_embeddings_merged, self.mfcc_embeddings_bow, self.mfcc_embeddings_stat = self._load_and_normalize_mfcc(mfcc_bow_path, mfcc_stats_path)
 
         self.songs = self._load_song_info(info_file_path, genres_dict, url_dict, metadata_dict, popularity_dict)
-
 
     @staticmethod
     def _load_dict_from_tsv(file_path: str, key_col: str, value_col: str, transform=None) -> Dict[str, any]:
