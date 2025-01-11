@@ -7,6 +7,8 @@ from retrieval_systems.embedding_system import EmbeddingRetrievalSystem
 from retrieval_systems.mfcc_retrieval import MFCCRetrievalSystem
 from retrieval_systems.lambdarank_system import LambdaRankRetrievalSystem
 from retrieval_systems.tfidf_retrieval import TFIDFRetrievalSystem
+from retrieval_systems.early_fusion import EarlyFusionRetrievalSystem
+from retrieval_systems.late_fusion import LateFusionRetrievalSystem
 from Music4All import Dataset
 from metrics.accuracy_metrics import Metrics
 from metrics.beyond_accuracy_metrics import BeyondAccuracyMetrics
@@ -21,7 +23,8 @@ dataset = Dataset(
     'dataset/id_resnet_mmsr.tsv',
     'dataset/id_vgg19_mmsr.tsv',
     'dataset/id_mfcc_bow_mmsr.tsv',
-    'dataset/id_mfcc_stats_mmsr.tsv'
+    'dataset/id_mfcc_stats_mmsr.tsv',
+    'dataset/id_lyrics_word2vec_mmsr.tsv'
 )
 
 # Initialize retrieval systems
@@ -32,18 +35,26 @@ vgg19_system = EmbeddingRetrievalSystem(dataset, dataset.vgg19_embeddings, "VGG1
 mfcc_system = MFCCRetrievalSystem(dataset)
 tfidf_system = TFIDFRetrievalSystem(dataset, 'dataset/id_lyrics_tf-idf_mmsr.tsv')
 lambdarank_system = LambdaRankRetrievalSystem(dataset, 'dataset/lambdarank_model.pth', dataset.lambdarank_feature_dim)
+early_fusion_system = EarlyFusionRetrievalSystem(dataset, dataset.word2vec_embeddings, dataset.resnet_embeddings, dataset.mfcc_embeddings_stat, 'dataset/svm_model.pkl')
+late_fusion_system = LateFusionRetrievalSystem(dataset, dataset.word2vec_embeddings, dataset.resnet_embeddings, dataset.mfcc_embeddings_stat, 'dataset/late_fusion_model.pkl')
+
 
 metrics_instance = Metrics()
 
 # Configuration
-NUM_REQUESTS = 100  # Number of queries to evaluate
+NUM_REQUESTS = 10  # Number of queries to evaluate
 TOP_K = 10  # Top-K results to evaluate
 retrieval_systems = {
+    "Early Fusion": early_fusion_system,
+    "Late Fusion": late_fusion_system,
     "Baseline": baseline_system,
     "BERT": bert_system,
     "ResNet": resnet_system,
     "VGG19": vgg19_system,
-    "MFCC": mfcc_system,
+    "MFCC stat cos": mfcc_system,
+    "MFCC bow cos": mfcc_system,
+    "MFCC stat": mfcc_system,
+    "MFCC bow": mfcc_system,
     "TFIDF": tfidf_system,
     "LambdaRank": lambdarank_system,
 }
@@ -58,12 +69,16 @@ for system_name, system in retrieval_systems.items():
 
     for query_song in query_songs:
         # Use the appropriate retrieval method based on the system
-        if system_name == "MFCC":
+        if system_name == "MFCC stat cos":
             retrieved_songs = system.recommend_similar_songs_stat_cos(query_song, TOP_K)
+        elif system_name == "MFCC bow cos":
+            retrieved_songs = system.recommend_similar_songs_bow_cos(query_song, TOP_K)
+        elif system_name == "MFCC stat":
+            retrieved_songs = system.recommend_similar_songs_stat(query_song, TOP_K)
+        elif system_name == "MFCC bow":
+            retrieved_songs = system.recommend_similar_songs_bow(query_song, TOP_K)
         elif system_name == "TFIDF":
             retrieved_songs = system.retrieve(query_song.song_id, TOP_K)
-        elif system_name == "LambdaRank":
-            retrieved_songs = system.get_retrieval(query_song, TOP_K)
         else:
             retrieved_songs = system.get_retrieval(query_song, TOP_K)
         
