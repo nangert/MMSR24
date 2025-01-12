@@ -274,16 +274,16 @@ def retrieve_songs(query_song: Song, n: number, diversity_optimization: bool, mo
             retrieved_songs = resnet_retrieval_system.get_retrieval(query_song, adapted_n)
         case 'VGG19':
             print('vgg19')
-            retrieved_songs = vgg19_retrieval_system.get_retrieval(query_song, n)
+            retrieved_songs = vgg19_retrieval_system.get_retrieval(query_song, adapted_n)
         case 'LambdaRank':
             print('lambdarank')
-            retrieved_songs = lambdarank_retrieval_system.get_retrieval(query_song, n)
+            retrieved_songs = lambdarank_retrieval_system.get_retrieval(query_song, adapted_n)
         case 'EarlyFusion':
             print('earlyfusion')
-            retrieved_songs = early_fusion_retrieval_system.get_retrieval(query_song, n)
+            retrieved_songs = early_fusion_retrieval_system.get_retrieval(query_song, adapted_n)
         case 'LateFusion':
             print('latefusion')
-            retrieved_songs = late_fusion_retrieval_system.get_retrieval(query_song, n)
+            retrieved_songs = late_fusion_retrieval_system.get_retrieval(query_song, adapted_n)
         case _:
             print('default')
             retrieved_songs = bert_retrieval_system.get_retrieval(query_song, adapted_n)
