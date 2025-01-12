@@ -36,7 +36,6 @@ class EnhancedDataset:
         self.resnet_embeddings = self._load_compressed_embeddings(resnet_path)
         self.mfcc_stats_embeddings = self._load_compressed_embeddings(mfcc_stats_path)
 
-        # Normalize each modality before usage
         self._normalize_embeddings_per_modality()
 
     def _load_songs(self, file_path: str):
@@ -199,12 +198,9 @@ def train_late_fusion_calibrated(df: pd.DataFrame, output_file: str = "late_fusi
     # Use the hashed genre sets as y
     df["label"] = df["genres"].apply(hash_genres)
 
-    # Split into training and testing sets
     train_df, test_df = train_test_split(df, test_size=0.2, random_state=100)
 
-    # --------------------------------------------------
-    # 1. Train Unimodal Classifiers + Calibrate
-    # --------------------------------------------------
+    # Train Unimodal Classifiers + Calibrate
     unimodal_svms = {}
     modalities = ["word2vec", "resnet", "mfcc_stats"]
 
@@ -224,7 +220,7 @@ def train_late_fusion_calibrated(df: pd.DataFrame, output_file: str = "late_fusi
             # Calibrate using Platt's scaling
             calibrated_model = CalibratedClassifierCV(
                 estimator=svm_model_raw,
-                cv="prefit",  # calibrate on the same training set for demonstration
+                cv="prefit",
                 method="sigmoid"
             )
             calibrated_model.fit(X_train_mod, y_train)
@@ -232,9 +228,7 @@ def train_late_fusion_calibrated(df: pd.DataFrame, output_file: str = "late_fusi
             unimodal_svms[modality] = calibrated_model
             print("Done.\n")
 
-        # --------------------------------------------------
-        # 2. Generate Late Fusion Features
-        # --------------------------------------------------
+        # Generate Late Fusion Features
         def generate_late_fusion_features(df_subset: pd.DataFrame):
             # For each unimodal classifier, produce predict_proba outputs
             # Then horizontally stack them to create the fusion feature
@@ -253,17 +247,13 @@ def train_late_fusion_calibrated(df: pd.DataFrame, output_file: str = "late_fusi
         X_test_fusion = generate_late_fusion_features(test_df)
         y_test_fusion = test_df["label"].values
 
-        # --------------------------------------------------
-        # 3. Train Final Fusion Classifier
-        # --------------------------------------------------
+        # Train Final Fusion Classifier
         print("--- Training final SVM on fused probabilities ---")
         fusion_svm = svm.SVC(kernel="linear", probability=False, random_state=100)
         fusion_svm.fit(X_train_fusion, y_train_fusion)
         print("Done.\n")
 
-        # --------------------------------------------------
         # Evaluate the final fusion classifier
-        # --------------------------------------------------
         y_pred = fusion_svm.predict(X_test_fusion)
         acc = accuracy_score(y_test_fusion, y_pred)
         cls_rep = classification_report(y_test_fusion, y_pred, zero_division=0)
@@ -275,7 +265,6 @@ def train_late_fusion_calibrated(df: pd.DataFrame, output_file: str = "late_fusi
 
     print(f"Late Fusion training report saved to {output_file}.")
 
-    # Return all models as a dictionary
     return {
         "unimodal_svms": unimodal_svms,
         "fusion_svm": fusion_svm

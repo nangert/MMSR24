@@ -37,12 +37,10 @@ class EnhancedDataset:
         self.resnet_embeddings = self._load_compressed_embeddings(resnet_path)
         self.mfcc_stats_embeddings = self._load_compressed_embeddings(mfcc_stats_path)
 
-        # 1) Normalize each modality separately
         self._normalize_embeddings_per_modality()
 
-        # 2) [NEW] Optionally reduce dimensions via PCA per modality
-        #    Adjust the target dimensions as needed for each modality.
-        #    For example, reduce ResNet from 4096 → 50, Word2Vec from 300 → 50, MFCC from 104 → 50.
+        # Adjust the target dimensions as needed for each modality.
+        # For example, reduce ResNet from 4096 → 50, Word2Vec from 300 → 50, MFCC from 104 → 50.
         pca_target_dims = {
             "word2vec_embeddings": 50,
             "resnet_embeddings": 50,
@@ -232,7 +230,6 @@ def train_svm(df: pd.DataFrame, output_file: str = "svm_training_report.txt"):
 
 
 def main():
-    # Define file paths
     info_file_path = "dataset/train/id_information.csv"
     genres_file_path = "dataset/train/id_genres_mmsr.tsv"
     metadata_file_path = "dataset/train/id_metadata.csv"
