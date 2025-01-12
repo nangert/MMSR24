@@ -40,7 +40,9 @@ export class FilterComponent implements OnInit{
     { name: 'MFCC', key: 'MFCC' },
     { name: 'ResNet', key: 'ResNet' },
     { name: 'VGG19', key: 'VGG19' },
-    { name: 'LambdaMART', key: 'LambdaMART' }
+    { name: 'LambdaMART', key: 'LambdaMART' },
+    { name: 'Early Fusion', key: 'EarlyFusion' },
+    { name: 'Late Fusion', key: 'LateFusion' },
   ];
 
   retrievalForm: FormGroup<RetrieveModel> = this.formBuilder.group({
@@ -119,6 +121,12 @@ export class FilterComponent implements OnInit{
           break
         case 'LambdaMART':
           this.recommenderService.getLamdaMARTRecommendations.next(model)
+          break
+        case 'EarlyFusion':
+          this.recommenderService.getEarlyFusionRecommendations.next(model)
+          break
+        case 'LateFusion':
+          this.recommenderService.getLateFusionRecommendations.next(model)
           break
         default:
           this.recommenderService.getBaselineRecommendations.next(model)

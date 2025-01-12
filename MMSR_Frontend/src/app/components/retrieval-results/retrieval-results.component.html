@@ -77,5 +77,19 @@
         retrievalSystem="LamdaMART Model"
       />
     }
+    @if (recommenderService.earlyFusionRecommendations()) {
+      <app-retrieval-result-model
+        [retrievalResult]="recommenderService.earlyFusionRecommendations()!"
+        [queryResult]="metricService.earlyFusionMetrics"
+        retrievalSystem="Early Fusion Model"
+      />
+    }
+    @if (recommenderService.lateFusionRecommendations()) {
+      <app-retrieval-result-model
+        [retrievalResult]="recommenderService.lateFusionRecommendations()!"
+        [queryResult]="metricService.lateFusionMetrics"
+        retrievalSystem="Late Fusion Model"
+      />
+    }
   </div>
 </div>

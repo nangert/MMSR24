@@ -110,6 +110,24 @@ export class RecommenderApiService {
     });
   }
 
+  getEarlyFusionRecommendations(querySongId: string, N: number, diversity: boolean): Observable<RetrieveResult> {
+    const url = `${this.baseUrl}/retrieve/early-fusion`;
+    return this.http.post<RetrieveResult>(url, {
+      query_song_id: querySongId,
+      N: N,
+      diversity: diversity
+    });
+  }
+
+  getLateFusionRecommendations(querySongId: string, N: number, diversity: boolean): Observable<RetrieveResult> {
+    const url = `${this.baseUrl}/retrieve/late-fusion`;
+    return this.http.post<RetrieveResult>(url, {
+      query_song_id: querySongId,
+      N: N,
+      diversity: diversity
+    });
+  }
+
   getQueryMetrics(body: RetrieveResult): Observable<QueryMetrics> {
     return this.http.post<QueryMetrics>(`${this.baseUrl}/calculate_metrics`, body)
   }

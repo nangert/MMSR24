@@ -227,21 +227,21 @@ def retrieve_lamdba_mart():
 
 @app.route('/retrieve/early-fusion', methods=['POST'])
 def retrieve_early_fusion():
-    query_song, n = get_query_data(request.get_json(), dataset)
+    query_song, n, diversity_optimization = get_query_data(request.get_json(), dataset)
 
     if not query_song:
         return jsonify({"error": "Query song not found"}), 404
 
-    return retrieve_songs(query_song, n, model='EarlyFusion')
+    return retrieve_songs(query_song, n, diversity_optimization, model='EarlyFusion')
 
 @app.route('/retrieve/late-fusion', methods=['POST'])
 def retrieve_late_fusion():
-    query_song, n = get_query_data(request.get_json(), dataset)
+    query_song, n, diversity_optimization = get_query_data(request.get_json(), dataset)
 
     if not query_song:
         return jsonify({"error": "Query song not found"}), 404
 
-    return retrieve_songs(query_song, n, model='LateFusion')
+    return retrieve_songs(query_song, n, diversity_optimization, model='LateFusion')
 
 def retrieve_songs(query_song: Song, n: number, diversity_optimization: bool, model: str):
     if diversity_optimization:

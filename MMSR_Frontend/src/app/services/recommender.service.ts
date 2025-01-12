@@ -46,11 +46,15 @@ export class RecommenderService {
     if (this.lamdaMARTRecommendations()) {
       list.push(this.lamdaMARTRecommendations());
     }
+    if (this.earlyFusionRecommendations()) {
+      list.push(this.lamdaMARTRecommendations());
+    }
+    if (this.lateFusionRecommendations()) {
+      list.push(this.lamdaMARTRecommendations());
+    }
 
     return list
   })
-
-  retrievalResults$ = toObservable(this.retrievalResults)
 
   isLoadingRecommendations: WritableSignal<boolean> = signal(false)
   querySong: WritableSignal<Song | undefined> = signal(undefined)
@@ -276,6 +280,52 @@ export class RecommenderService {
   )
   lamdaMARTRecommendations: Signal<RetrieveResult | undefined> = toSignal(this.lamdaMARTRecommendations$)
 
+  getEarlyFusionRecommendations: Subject<RetrieveApiModel | void> = new Subject<RetrieveApiModel | void>();
+  getEarlyFusionRecommendations$ = this.getEarlyFusionRecommendations.asObservable();
+
+  earlyFusionRecommendations$: Observable<RetrieveResult | undefined> = this.getEarlyFusionRecommendations$.pipe(
+    switchMap((model) => {
+      if (!model) return of(void 0)
+
+      this.isLoadingRecommendations.set(true)
+
+      return this.apiService.getEarlyFusionRecommendations(model.songId, model.count, model.diversity).pipe(
+        tap((res) => {
+          this.querySong.set(res.query_song)
+          this.isLoadingRecommendations.set(false)
+        })
+      )
+    }),
+    shareReplay({
+      bufferSize: 1,
+      refCount: true
+    })
+  )
+  earlyFusionRecommendations: Signal<RetrieveResult | undefined> = toSignal(this.earlyFusionRecommendations$)
+
+  getLateFusionRecommendations: Subject<RetrieveApiModel | void> = new Subject<RetrieveApiModel | void>();
+  getLateFusionRecommendations$ = this.getLateFusionRecommendations.asObservable();
+
+  lateFusionRecommendations$: Observable<RetrieveResult | undefined> = this.getLateFusionRecommendations$.pipe(
+    switchMap((model) => {
+      if (!model) return of(void 0)
+
+      this.isLoadingRecommendations.set(true)
+
+      return this.apiService.getLateFusionRecommendations(model.songId, model.count, model.diversity).pipe(
+        tap((res) => {
+          this.querySong.set(res.query_song)
+          this.isLoadingRecommendations.set(false)
+        })
+      )
+    }),
+    shareReplay({
+      bufferSize: 1,
+      refCount: true
+    })
+  )
+  lateFusionRecommendations: Signal<RetrieveResult | undefined> = toSignal(this.lateFusionRecommendations$)
+
   resetRecommendations(): void {
     this.querySong.set(undefined)
     this.getBaselineRecommendations.next(void 0)
@@ -285,6 +335,8 @@ export class RecommenderService {
     this.getResNetRecommendations.next(void 0)
     this.getVGG19Recommendations.next(void 0)
     this.getLamdaMARTRecommendations.next(void 0)
+    this.getEarlyFusionRecommendations.next(void 0)
+    this.getLateFusionRecommendations.next(void 0)
   }
 
 }

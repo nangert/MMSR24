@@ -123,4 +123,26 @@ export class MetricsService {
     })
   )
   lamdaMARTMetrics = toSignal(this.lamdaMARTMetrics$)
+
+  earlyFusionMetrics$: Observable<QueryMetrics | undefined> = this.recommenderService.earlyFusionRecommendations$.pipe(
+    tap(() => this.isLoadingQueryMetrics.set(true)),
+    switchMap((body) => {
+      if (!body) return of(void 0)
+
+      this.isLoadingQueryMetrics.set(false)
+      return this.apiService.getQueryMetrics(body)
+    })
+  )
+  earlyFusionMetrics = toSignal(this.earlyFusionMetrics$)
+
+  lateFusionMetrics$: Observable<QueryMetrics | undefined> = this.recommenderService.lateFusionRecommendations$.pipe(
+    tap(() => this.isLoadingQueryMetrics.set(true)),
+    switchMap((body) => {
+      if (!body) return of(void 0)
+
+      this.isLoadingQueryMetrics.set(false)
+      return this.apiService.getQueryMetrics(body)
+    })
+  )
+  lateFusionMetrics = toSignal(this.lateFusionMetrics$)
 }
