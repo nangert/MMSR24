@@ -96,6 +96,24 @@ def calculate_metrics():
         metrics_instance = Metrics()
         result = metrics_instance.calculate_metrics(query_song, result_songs_filtered_genre, total_relevant, query_genres, k)
 
+        # Convert result_songs (list of dicts) to Song objects
+        result_songs_objects = [
+            Song(
+                song_id=song['song_id'],
+                artist=song['artist'],
+                song_title=song['song_title'],
+                album_name=song['album_name'],
+                genres=song['genres'],
+                url=song['url'],
+                spotify_id=song['spotify_id'],
+                popularity=song['popularity']
+            )
+            for song in result_songs
+        ]
+
+        diversity = diversity_optimizer.calculate_diversity_score(result_songs_objects)
+        result['diversity'] = round(diversity, 4)
+
         # Return all metrics as a JSON response
         return jsonify(result)
 

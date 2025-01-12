@@ -18,4 +18,5 @@ export interface QueryMetrics {
   ndcg_at_k: string
   precision_at_k: string
   recall_at_k: string
+  diversity: string
 }

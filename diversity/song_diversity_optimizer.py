@@ -85,7 +85,7 @@ class SongDiversityOptimizer:
         for i in range(len(songs)):
             for j in range(i + 1, len(songs)):
                 total_distance += self.distance(songs[i], songs[j])
-        return total_distance
+        return total_distance / len(songs)**2
 
     def greedy_optimize_diversity(self, retrieved_songs: List, n: int) -> List:
         """
