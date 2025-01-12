@@ -97,8 +97,6 @@ class Metrics:
         relevant_labels: List[int] = []
         for song in result_songs:
             song_genres = set(song.get('genres', []))
-            print(song.get('song_id', []), len(query_genres & song_genres), len(query_genres | song_genres),
-                  len(query_genres & song_genres) / len(query_genres | song_genres),  song_genres, query_genres)
 
             is_relevant = int(len(query_genres & song_genres) / len(query_genres | song_genres) > 0.1)
             relevant_labels.append(is_relevant)
@@ -123,7 +121,7 @@ def main():
     Main function to compute and print average accuracy metrics.
     """
     # Parameters
-    retrieval_results_path = '../results/retrieval_results.json'
+    retrieval_results_path = '../results/old/retrieval_results.json'
     N = 10  # Number of retrieved items to consider in metrics
 
     # Load retrieval results
