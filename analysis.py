@@ -9,11 +9,12 @@ from retrieval_systems.lambdarank_system import LambdaRankRetrievalSystem
 from retrieval_systems.tfidf_retrieval import TFIDFRetrievalSystem
 from retrieval_systems.early_fusion import EarlyFusionRetrievalSystem
 from retrieval_systems.late_fusion import LateFusionRetrievalSystem
-from Music4All import Dataset
+from Music4All import Dataset, Song
 from metrics.accuracy_metrics import Metrics
 from metrics.beyond_accuracy_metrics import BeyondAccuracyMetrics
+from diversity.song_diversity_optimizer import SongDiversityOptimizer  # <-- import your diversity optimizer
 
-# Load the dataset and initialize retrieval systems
+# Load the dataset
 dataset = Dataset(
     'dataset/id_information_mmsr.tsv',
     'dataset/id_genres_mmsr.tsv',
@@ -35,18 +36,14 @@ vgg19_system = EmbeddingRetrievalSystem(dataset, dataset.vgg19_embeddings, "VGG1
 mfcc_system = MFCCRetrievalSystem(dataset)
 tfidf_system = TFIDFRetrievalSystem(dataset, 'dataset/id_lyrics_tf-idf_mmsr.tsv')
 lambdarank_system = LambdaRankRetrievalSystem(dataset, 'models/lambdarank_model.pth', dataset.lambdarank_feature_dim)
-early_fusion_system = EarlyFusionRetrievalSystem(dataset, dataset.word2vec_embeddings, dataset.resnet_embeddings, dataset.mfcc_embeddings_stat, 'dataset/svm_model.pkl')
-late_fusion_system = LateFusionRetrievalSystem(dataset, dataset.word2vec_embeddings, dataset.resnet_embeddings, dataset.mfcc_embeddings_stat, 'dataset/late_fusion_model.pkl')
-
 
 metrics_instance = Metrics()
+diversity_optimizer = SongDiversityOptimizer('dataset/id_tags_dict.tsv')  # or whichever path you use
 
 # Configuration
 NUM_REQUESTS = 10  # Number of queries to evaluate
 TOP_K = 10  # Top-K results to evaluate
 retrieval_systems = {
-    "Early Fusion": early_fusion_system,
-    "Late Fusion": late_fusion_system,
     "Baseline": baseline_system,
     "BERT": bert_system,
     "ResNet": resnet_system,
@@ -58,85 +55,154 @@ retrieval_systems = {
     "TFIDF": tfidf_system,
     "LambdaRank": lambdarank_system,
 }
+
 results = []
 
-# Generate and evaluate retrieval results
-for system_name, system in retrieval_systems.items():
-    print(f"Evaluating {system_name}...")
+# ----------------------------------------------------------
+# 1) Determine our set of query songs ONE TIME for all runs.
+# ----------------------------------------------------------
+random.seed(100)
+all_songs = dataset.get_all_songs()
+query_songs = random.sample(all_songs, NUM_REQUESTS)
 
-    random.seed(100)
-    query_songs = random.sample(dataset.get_all_songs(), NUM_REQUESTS)
+# ----------------------------------------------------------
+# 2) For each system, run retrieval *twice*:
+#    - no diversity (original)
+#    - with diversity (retrieve 5*K, then optimize)
+# ----------------------------------------------------------
+for system_name, system in retrieval_systems.items():
+    print(f"\n========================================")
+    print(f"Evaluating system: {system_name}")
+    print(f"========================================\n")
 
     for query_song in query_songs:
-        # Use the appropriate retrieval method based on the system
+
+        # 2.1) Retrieve top-K *without* diversity
         if system_name == "MFCC stat cos":
-            retrieved_songs = system.recommend_similar_songs_stat_cos(query_song, TOP_K)
+            retrieved_songs_original = system.recommend_similar_songs_stat_cos(query_song, TOP_K)
         elif system_name == "MFCC bow cos":
-            retrieved_songs = system.recommend_similar_songs_bow_cos(query_song, TOP_K)
+            retrieved_songs_original = system.recommend_similar_songs_bow_cos(query_song, TOP_K)
         elif system_name == "MFCC stat":
-            retrieved_songs = system.recommend_similar_songs_stat(query_song, TOP_K)
+            retrieved_songs_original = system.recommend_similar_songs_stat(query_song, TOP_K)
         elif system_name == "MFCC bow":
-            retrieved_songs = system.recommend_similar_songs_bow(query_song, TOP_K)
+            retrieved_songs_original = system.recommend_similar_songs_bow(query_song, TOP_K)
         elif system_name == "TFIDF":
-            retrieved_songs = system.retrieve(query_song.song_id, TOP_K)
+            retrieved_songs_original = system.retrieve(query_song.song_id, TOP_K)
         else:
-            retrieved_songs = system.get_retrieval(query_song, TOP_K)
-        
-        # Compute relevance metrics
-        total_relevant = dataset.get_total_relevant(query_song.to_dict(), dataset.load_genre_weights(
-            'dataset/id_tags_dict.tsv', 'dataset/id_genres_mmsr.tsv'))
+            retrieved_songs_original = system.get_retrieval(query_song, TOP_K)
+
+        # 2.2) Retrieve top-5*K for diversity, then reduce to K
+        adapted_k = TOP_K * 5
+        if system_name == "MFCC stat cos":
+            retrieved_songs_div = system.recommend_similar_songs_stat_cos(query_song, adapted_k)
+        elif system_name == "MFCC bow cos":
+            retrieved_songs_div = system.recommend_similar_songs_bow_cos(query_song, adapted_k)
+        elif system_name == "MFCC stat":
+            retrieved_songs_div = system.recommend_similar_songs_stat(query_song, adapted_k)
+        elif system_name == "MFCC bow":
+            retrieved_songs_div = system.recommend_similar_songs_bow(query_song, adapted_k)
+        elif system_name == "TFIDF":
+            retrieved_songs_div = system.retrieve(query_song.song_id, adapted_k)
+        else:
+            retrieved_songs_div = system.get_retrieval(query_song, adapted_k)
+
+        # Apply diversity optimization
+        retrieved_songs_div = diversity_optimizer.greedy_optimize_diversity(retrieved_songs_div, TOP_K)
+
+        # ----------------------------------------------------------
+        # 3) Compute relevance metrics for both sets of results.
+        # ----------------------------------------------------------
+        total_relevant = dataset.get_total_relevant(
+            query_song.to_dict(),
+            dataset.load_genre_weights('dataset/id_tags_dict.tsv', 'dataset/id_genres_mmsr.tsv')
+        )
         query_genres = set(query_song.genres)
 
-        # Calculate accuracy metrics
-        metrics = metrics_instance.calculate_metrics(
+        # For "original" retrieval
+        metrics_original = metrics_instance.calculate_metrics(
             query_song.to_dict(),
-            [song.to_dict() for song in retrieved_songs],
+            [song.to_dict() for song in retrieved_songs_original],
             total_relevant,
             query_genres,
             TOP_K,
         )
 
-        # Compute beyond-accuracy metrics
-        catalog_popularity = {
-            song.song_id: song.popularity
-            for song in dataset.get_all_songs()
-        }
+        # For "diversified" retrieval
+        metrics_div = metrics_instance.calculate_metrics(
+            query_song.to_dict(),
+            [song.to_dict() for song in retrieved_songs_div],
+            total_relevant,
+            query_genres,
+            TOP_K,
+        )
 
-        catalog_dicts = [s.to_dict() for s in dataset.get_all_songs()]
-        retrieved_songs_dicts = [s.to_dict() for s in retrieved_songs]
-        user_history_dicts = [query_song.to_dict()]
+        # ----------------------------------------------------------
+        # 4) Compute beyond-accuracy metrics (catalog-level).
+        # ----------------------------------------------------------
+        catalog_popularity = {song.song_id: song.popularity for song in all_songs}
+        catalog_dicts = [s.to_dict() for s in all_songs]
 
-        beyond_metrics = {
-            "diversity": BeyondAccuracyMetrics.diversity(retrieved_songs_dicts),
-            "novelty": BeyondAccuracyMetrics.novelty(retrieved_songs_dicts, catalog_popularity),
-            "coverage": BeyondAccuracyMetrics.coverage(retrieved_songs_dicts, len(catalog_dicts)),
+        # Original
+        retrieved_songs_dicts_original = [s.to_dict() for s in retrieved_songs_original]
+        beyond_original = {
+            "diversity": BeyondAccuracyMetrics.diversity(retrieved_songs_dicts_original),
+            "novelty": BeyondAccuracyMetrics.novelty(retrieved_songs_dicts_original, catalog_popularity),
+            "coverage": BeyondAccuracyMetrics.coverage(retrieved_songs_dicts_original, len(catalog_dicts)),
             "serendipity": BeyondAccuracyMetrics.serendipity(
-                retrieved_songs_dicts,
-                user_history_dicts,
+                retrieved_songs_dicts_original,
+                [query_song.to_dict()],
                 catalog_dicts
             )
         }
 
+        # Diversified
+        retrieved_songs_dicts_div = [s.to_dict() for s in retrieved_songs_div]
+        beyond_div = {
+            "diversity": BeyondAccuracyMetrics.diversity(retrieved_songs_dicts_div),
+            "novelty": BeyondAccuracyMetrics.novelty(retrieved_songs_dicts_div, catalog_popularity),
+            "coverage": BeyondAccuracyMetrics.coverage(retrieved_songs_dicts_div, len(catalog_dicts)),
+            "serendipity": BeyondAccuracyMetrics.serendipity(
+                retrieved_songs_dicts_div,
+                [query_song.to_dict()],
+                catalog_dicts
+            )
+        }
+
+        # ----------------------------------------------------------
+        # 5) Store two rows in `results`:
+        #    - <SystemName> (original)
+        #    - <SystemName> + "_div" (with diversity)
+        # ----------------------------------------------------------
         results.append({
             "system": system_name,
             "query_id": query_song.song_id,
-            **metrics,
-            **beyond_metrics,
+            **metrics_original,
+            **beyond_original
+        })
+        results.append({
+            "system": system_name + "_div",
+            "query_id": query_song.song_id,
+            **metrics_div,
+            **beyond_div
         })
 
-# Store metrics in a DataFrame
+# ------------------------------------------------------------------
+# 6) Results DataFrame
+# ------------------------------------------------------------------
 df_results = pd.DataFrame(results)
 print("\nEvaluation Results are stored in evaluation_results.csv")
 df_results.to_csv(os.path.join('results', 'evaluation_results.csv'), index=False)
 
 
-# Function to annotate bars with values
+# ------------------------------------------------------------------
+# 7) Visualization of Accuracy Metrics (original + _div)
+# ------------------------------------------------------------------
 def annotate_bars(ax):
     for bar in ax.patches:
         value = bar.get_height()
         ax.text(
-            bar.get_x() + bar.get_width() / 2,  # x-coordinate (center of the bar)
-            value,  # y-coordinate (height of the bar)
+            bar.get_x() + bar.get_width() / 2,
+            value,
             f"{value:.3f}",
             ha="center",
             va="bottom",
@@ -149,14 +215,13 @@ def annotate_bars(ax):
 for metric in ["precision_at_k", "recall_at_k", "ndcg_at_k", "mrr"]:
     plt.figure()
     grouped = df_results.groupby("system")[metric].mean().reset_index()
-    ax = plt.bar(grouped["system"], grouped[metric])
+    plt.bar(grouped["system"], grouped[metric])
     plt.title(f"Average {metric.upper()} by System")
     plt.ylabel(metric.upper())
     plt.xlabel("Retrieval System")
     plt.xticks(rotation=45, ha="right")
     plt.tight_layout()
-    annotate_bars(plt.gca())  # Annotate bars
-    # Save the plot
+    annotate_bars(plt.gca())
     plt.savefig(f"results/{metric}_by_system.png")
     plt.show()
 
@@ -164,14 +229,12 @@ for metric in ["precision_at_k", "recall_at_k", "ndcg_at_k", "mrr"]:
 for metric in ["diversity", "novelty", "coverage", "serendipity"]:
     plt.figure()
     grouped = df_results.groupby("system")[metric].mean().reset_index()
-    ax = plt.bar(grouped["system"], grouped[metric])
+    plt.bar(grouped["system"], grouped[metric])
     plt.title(f"Average {metric.capitalize()} by System")
     plt.ylabel(metric.capitalize())
     plt.xlabel("Retrieval System")
     plt.xticks(rotation=45, ha="right")
     plt.tight_layout()
-    annotate_bars(plt.gca())  # Annotate bars
-    # Save the plot
+    annotate_bars(plt.gca())
     plt.savefig(f"results/{metric}_by_system.png")
     plt.show()
-
