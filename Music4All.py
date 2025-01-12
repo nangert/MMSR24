@@ -1,6 +1,8 @@
 # Music4All.py
 import csv
 import ast
+import os
+import zipfile
 from typing import List, Dict, Tuple
 import numpy as np
 import pandas as pd
@@ -86,6 +88,8 @@ class Dataset:
         self.vgg19_embeddings = {}
         self.word2vec_embeddings = {}
         self.lambdarank_feature_dim = 500
+
+        self.check_and_unzip_models('./models')
 
         self.load_dataset(info_file_path, genres_file_path, url_dataset_path, metadata_dataset_path,
                           bert_embeddings_path, resnet_embeddings_path, vgg19_embeddings_path,
@@ -271,3 +275,32 @@ class Dataset:
 
         return total_relevant
 
+    @staticmethod
+    def check_and_unzip_models(models_path: str = "./models", skip_existing: bool = True) -> None:
+        """
+        Checks the models_path directory for any .zip files and unzips them directly into the models directory.
+        If a file with the same base name as the zip (regardless of extension) already exists, skips unpacking.
+        The original .zip file is retained.
+
+        Args:
+            models_path (str): Path to the directory containing the .zip files.
+            skip_existing (bool): If True, skips unpacking if any file with the same base name exists.
+        """
+        if not os.path.exists(models_path):
+            return
+
+        for file_name in os.listdir(models_path):
+            if file_name.lower().endswith(".zip"):
+                zip_path = os.path.join(models_path, file_name)
+                base_name = os.path.splitext(file_name)[0]
+
+                # Check for any existing file with the same base name
+                if skip_existing:
+                    existing_files = [f for f in os.listdir(models_path) if os.path.splitext(f)[0] == base_name and f != file_name]
+                    if existing_files:
+                        continue
+
+                # Unzip contents directly into the models directory
+                with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                    zip_ref.extractall(models_path)
+                    print(f"Unzipped {file_name} into {models_path}.")
