@@ -1,7 +1,7 @@
 ﻿import json
 import pandas as pd
-from collections import defaultdict
 from typing import List
+from collections import defaultdict
 
 class SongDiversityOptimizer:
     def __init__(self, filepath):
@@ -11,7 +11,7 @@ class SongDiversityOptimizer:
         """
         self.song_tags = self.load_tags(filepath)
 
-    def load_tags(self, filepath):
+    def load_tags(self, filepath: str) -> dict:
         """
         Load the tag data from a TSV file into a dictionary.
         :param filepath: Path to the dataset file
@@ -24,71 +24,99 @@ class SongDiversityOptimizer:
             if pd.isna(row['tags']) or not row['tags'].strip():
                 continue  # Skip rows with missing or empty tags
             try:
-                tags = json.loads(row['tags'].replace("'", '"'))  # Replace single quotes with double quotes
+                # Replace single quotes with double quotes to parse JSON
+                tags = json.loads(row['tags'].replace("'", '"'))
                 song_tags[song_id] = tags
             except json.JSONDecodeError as e:
                 print(f"Error decoding JSON for song_id {song_id}: {e}")
                 continue
         return song_tags
 
-    def greedy_optimize_diversity(self, songs: List, n: int):
+    def get_tag_dict(self, song) -> dict:
         """
-        Optimize diversity by greedily selecting songs with minimal tag overlap.
-        :param songs: List of Song objects to consider for diversity optimization
-        :param n: Number of songs to select
-        :return: List of selected Song objects
+        Given a song object, return its tag->weight dictionary.
+        We assume 'song.song_id' is the key in self.song_tags.
+        Adjust as needed if your 'song' structure differs.
         """
-        if len(songs) <= n:
-            return songs  # If fewer songs are retrieved than required, return all of them
+        return self.song_tags.get(song.song_id, {})
 
-        selected_songs = []
-        selected_tags = defaultdict(int)
-
-        for _ in range(n):
-            best_song = None
-            best_diversity_score = float('-inf')
-
-            for song in songs:
-                if song in selected_songs:
-                    continue
-
-                tags = self.song_tags.get(song.song_id, {})
-                diversity_score = sum((1 / (1 + selected_tags[tag])) * weight for tag, weight in tags.items())
-
-                if diversity_score > best_diversity_score:
-                    best_diversity_score = diversity_score
-                    best_song = song
-
-            if best_song:
-                selected_songs.append(best_song)
-                songs.remove(best_song)  # Remove the selected song from the pool
-                for tag, weight in self.song_tags.get(best_song.song_id, {}).items():
-                    selected_tags[tag] += weight
-
-        return selected_songs
-
-    def calculate_diversity_score(self, songs: List['Song'], n: int = None) -> float:
+    def weighted_jaccard_similarity(self, song_a, song_b) -> float:
         """
-        Calculate the diversity score for a given list of songs.
-        :param songs: List of Song objects
-        :param n: Number of songs to consider (optional, defaults to the full list)
-        :return: A float representing the diversity score of the list
+        Calculate weighted Jaccard similarity between two songs, based on their tag dictionaries.
         """
-        if not songs:
+        tags_a = self.get_tag_dict(song_a)
+        tags_b = self.get_tag_dict(song_b)
+
+        if not tags_a and not tags_b:
             return 0.0
 
-        if n is not None:
-            songs = songs[:n]  # Limit the list to the first n songs
+        # Sum of min(...) of the two vectors
+        sum_min = 0.0
+        # Sum of max(...) of the two vectors
+        sum_max = 0.0
 
-        tag_counts = defaultdict(int)
-        total_score = 0.0
+        # Get the union of all tags that appear in either song
+        all_tags = set(tags_a.keys()) | set(tags_b.keys())
 
-        for song in songs:
-            tags = self.song_tags.get(song.song_id, {})
-            for tag, weight in tags.items():
-                tag_counts[tag] += weight
+        for tag in all_tags:
+            w_a = tags_a.get(tag, 0)
+            w_b = tags_b.get(tag, 0)
+            sum_min += min(w_a, w_b)
+            sum_max += max(w_a, w_b)
 
-        for tag, count in tag_counts.items():
-            total_score += 1 / (1 + count)
+        if sum_max == 0:
+            return 0.0
 
-        return total_score
+        return sum_min / sum_max
+
+    def distance(self, song_a, song_b) -> float:
+        """
+        Define a distance measure as 1 - weighted_jaccard_similarity.
+        """
+        return 1.0 - self.weighted_jaccard_similarity(song_a, song_b)
+
+    def calculate_diversity_score(self, songs: List) -> float:
+        """
+        Calculate the total pairwise distance among all songs in the list.
+        The higher the score, the more diverse the set.
+        """
+
+        total_distance = 0.0
+        for i in range(len(songs)):
+            for j in range(i + 1, len(songs)):
+                total_distance += self.distance(songs[i], songs[j])
+        return total_distance
+
+    def greedy_optimize_diversity(self, retrieved_songs: List, n: int) -> List:
+        """
+        From the larger list 'retrieved_songs' of length adapted_n,
+        pick 'n' songs that greedily maximize pairwise diversity.
+        """
+        if n >= len(retrieved_songs):
+            # If we already have fewer than or equal to n songs, just return them
+            return retrieved_songs
+
+        # Convert the list to a mutable set of candidates
+        candidates = set(retrieved_songs)
+        chosen = []
+
+        while len(chosen) < n and candidates:
+            best_song = None
+            best_increase = -1.0
+
+            for song in candidates:
+                # Temporarily evaluate adding 'song' to chosen
+                new_diversity = self.calculate_diversity_score(chosen + [song])
+                # Current diversity of chosen
+                current_diversity = self.calculate_diversity_score(chosen)
+                increase = new_diversity - current_diversity
+
+                if increase > best_increase:
+                    best_increase = increase
+                    best_song = song
+
+            # Move the best candidate from the pool into chosen set
+            chosen.append(best_song)
+            candidates.remove(best_song)
+
+        return chosen
