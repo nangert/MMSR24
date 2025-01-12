@@ -1,7 +1,7 @@
 <p-card [header]="retrievalSystem">
 
   <ng-container>
-    @if (queryResult()) {
+    @if (queryResult() && recommenderService.showMetrics()) {
       <app-query-metrics [queryMetrics]="queryResult()!"/>
     }
 

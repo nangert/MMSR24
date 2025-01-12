@@ -47,7 +47,8 @@ export class FilterComponent implements OnInit{
     songId: '',
     count: 10,
     retrievalSystem: this.formBuilder.control([this.categories[0].key]),
-    diversity: false
+    diversity: false,
+    showMetrics: false
   }) as FormGroup<RetrieveModel>;
 
   filterForm: FormGroup<FilterModel> = this.formBuilder.group({
@@ -123,5 +124,9 @@ export class FilterComponent implements OnInit{
           this.recommenderService.getBaselineRecommendations.next(model)
       }
     }
+  }
+
+  displayMetrics(): void {
+    this.recommenderService.showMetrics.set(!this.recommenderService.showMetrics())
   }
 }

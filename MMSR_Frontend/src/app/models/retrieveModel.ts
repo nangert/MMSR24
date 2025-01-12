@@ -5,6 +5,7 @@ export interface RetrieveModel {
   count: FormControl<number>,
   retrievalSystem: FormControl<any>,
   diversity: FormControl<boolean>,
+  showMetrics: FormControl<boolean>,
 }
 
 export interface RetrieveApiModel {

@@ -105,7 +105,13 @@
         >
         Clear Results
         </button>
+
+        <div>
+          <p-checkbox formControlName="showMetrics" binary="true" (onChange)="displayMetrics()"></p-checkbox>
+          <label class="ms-1">Display Metrics</label>
+        </div>
       </div>
+
 
     </form>
   </div>

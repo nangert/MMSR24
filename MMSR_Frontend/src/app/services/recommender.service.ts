@@ -11,6 +11,8 @@ import {RetrieveApiModel} from '../models/retrieveModel';
 export class RecommenderService {
   private apiService = inject(RecommenderApiService)
 
+  showMetrics: WritableSignal<boolean> = signal(false)
+
   retrievalResults = computed(() => {
     const list = []
 
