@@ -35,8 +35,8 @@ vgg19_system = EmbeddingRetrievalSystem(dataset, dataset.vgg19_embeddings, "VGG1
 mfcc_system = MFCCRetrievalSystem(dataset)
 tfidf_system = TFIDFRetrievalSystem(dataset, 'dataset/id_lyrics_tf-idf_mmsr.tsv')
 lambdarank_system = LambdaRankRetrievalSystem(dataset, 'models/lambdarank_model.pth', dataset.lambdarank_feature_dim)
-early_fusion_system = EarlyFusionRetrievalSystem(dataset, dataset.word2vec_embeddings, dataset.resnet_embeddings, dataset.mfcc_embeddings_stat, 'dataset/svm_model.pkl')
-late_fusion_system = LateFusionRetrievalSystem(dataset, dataset.word2vec_embeddings, dataset.resnet_embeddings, dataset.mfcc_embeddings_stat, 'dataset/late_fusion_model.pkl')
+early_fusion_system = EarlyFusionRetrievalSystem(dataset, dataset.word2vec_embeddings, dataset.resnet_embeddings, dataset.mfcc_embeddings_stat, 'models/early_fusion_model.pkl')
+late_fusion_system = LateFusionRetrievalSystem(dataset, dataset.word2vec_embeddings, dataset.resnet_embeddings, dataset.mfcc_embeddings_stat, 'models/late_fusion_model.pkl')
 
 
 metrics_instance = Metrics()
