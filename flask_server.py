@@ -46,12 +46,12 @@ vgg19_retrieval_system = EmbeddingRetrievalSystem(dataset, dataset.vgg19_embeddi
 baseline_retrieval_system = BaselineRetrievalSystem(dataset)
 mfcc_retrieval_system = MFCCRetrievalSystem(dataset)
 tfidf_retrieval_system = TFIDFRetrievalSystem(dataset, tfidf_embeddings_path)
-lambdarank_model = 'dataset/lambdarank_model.pth'
-#lambdarank_retrieval_system = LambdaRankRetrievalSystem(dataset, lambdarank_model, dataset.lambdarank_feature_dim)
-#early_fusion_retrieval_system = EarlyFusionRetrievalSystem(dataset, dataset.bert_embeddings, dataset.resnet_embeddings,
-                                                           #dataset.mfcc_embeddings_stat, 'dataset/svm_model.pkl')
-#late_fusion_retrieval_system = LateFusionRetrievalSystem(dataset, dataset.bert_embeddings, dataset.resnet_embeddings,
-                                                         #dataset.mfcc_embeddings_stat, 'dataset/late_fusion_model.pkl')
+lambdarank_model = 'models/lambdarank_model.pth'
+lambdarank_retrieval_system = LambdaRankRetrievalSystem(dataset, lambdarank_model, dataset.lambdarank_feature_dim)
+early_fusion_retrieval_system = EarlyFusionRetrievalSystem(dataset, dataset.bert_embeddings, dataset.resnet_embeddings,
+                                                           dataset.mfcc_embeddings_stat, 'dataset/svm_model.pkl')
+late_fusion_retrieval_system = LateFusionRetrievalSystem(dataset, dataset.bert_embeddings, dataset.resnet_embeddings,
+                                                         dataset.mfcc_embeddings_stat, 'dataset/late_fusion_model.pkl')
 
 
 @app.route('/calculate_metrics', methods=['POST'])
@@ -275,15 +275,15 @@ def retrieve_songs(query_song: Song, n: number, diversity_optimization: bool, mo
         case 'VGG19':
             print('vgg19')
             retrieved_songs = vgg19_retrieval_system.get_retrieval(query_song, adapted_n)
-        #case 'LambdaRank':
-            #print('lambdarank')
-            #retrieved_songs = lambdarank_retrieval_system.get_retrieval(query_song, adapted_n)
-        #case 'EarlyFusion':
-            #print('earlyfusion')
-            #retrieved_songs = early_fusion_retrieval_system.get_retrieval(query_song, adapted_n)
-        #case 'LateFusion':
-            #print('latefusion')
-            #retrieved_songs = late_fusion_retrieval_system.get_retrieval(query_song, adapted_n)
+        case 'LambdaRank':
+            print('lambdarank')
+            retrieved_songs = lambdarank_retrieval_system.get_retrieval(query_song, adapted_n)
+        case 'EarlyFusion':
+            print('earlyfusion')
+            retrieved_songs = early_fusion_retrieval_system.get_retrieval(query_song, adapted_n)
+        case 'LateFusion':
+            print('latefusion')
+            retrieved_songs = late_fusion_retrieval_system.get_retrieval(query_song, adapted_n)
         case _:
             print('default')
             retrieved_songs = bert_retrieval_system.get_retrieval(query_song, adapted_n)
