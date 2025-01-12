@@ -19,7 +19,7 @@
 
       <!-- Body -->
       <ng-template pTemplate="body" let-song>
-        <tr>
+        <tr [class.shared]="isShared(song)">
           <td>{{ song.song_title }}</td>
           <td>{{ song.album_name }}</td>
           <td>{{ song.artist }}</td>

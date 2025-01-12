@@ -1,0 +1,22 @@
+
+.retrieval-results-container {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 16px;
+}
+
+.retrieval-results-container.single-result {
+  justify-content: center;
+}
+
+.retrieval-results-container.single-result app-retrieval-result-model {
+  flex: 0 1 75%;
+  max-width: 75%;
+}
+
+app-retrieval-result-model {
+  flex: 1 1 calc(33.333% - 16px);
+  max-width: calc(33.333% - 16px);
+  box-sizing: border-box;
+}

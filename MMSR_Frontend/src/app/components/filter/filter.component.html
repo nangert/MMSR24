@@ -1,9 +1,9 @@
-
-<div class="container mb-3 mt-3">
-  <div >
+<div class="m-3">
+  <div>
     <form (submit)="retrieveSongs(); $event.preventDefault()" [formGroup]="retrievalForm">
 
-      <div class="d-flex align-items-center gap-3 mb-3">
+      <!-- Text Inputs and Dropdown in a Row -->
+      <div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
         <div class="form-group">
           <label for="artist">Artist:</label>
           <input
@@ -15,7 +15,7 @@
             [formControl]="filterForm.controls.artist"
           />
         </div>
-        <div>
+        <div class="form-group">
           <label for="album">Album:</label>
           <input
             id="album"
@@ -26,9 +26,8 @@
             placeholder="Album"
             [formControl]="filterForm.controls.album_name"
           />
-
         </div>
-        <div>
+        <div class="form-group">
           <label for="title">Song Title:</label>
           <input
             id="title"
@@ -40,93 +39,74 @@
             [formControl]="filterForm.controls.song_title"
           />
         </div>
-      </div>
-
-      <div class="form-group mb-3">
-        <p-dropdown
-          [options]="dropdownValues()"
-          optionLabel="name"
-          optionValue="value"
-          placeholder="Select a Song"
-          [formControl]="retrievalForm.controls.songId"
-          [virtualScroll]="true"
-          [virtualScrollItemSize]="40"
-        />
-      </div>
-
-      <label>
-        Pick retrieval systems:
-      </label>
-
-      <div class="d-flex flex-row gap-3 mb-3 mt-3">
-        @for (category of categories; track category.key) {
-          <div>
-            <p-checkbox
-              [inputId]="category.key"
-              name="category"
-              [value]="category.key"
-              [formControl]="retrievalForm.controls.retrievalSystem"
-            />
-            <label [for]="category.key" class="ms-1">
-              {{ category.name }}
-            </label>
-          </div>
-        }
-      </div>
-
-      <div class="d-flex flex-row gap-3 mb-3 mt-3">
-        <p-checkbox
-          formControlName="diversity"
-          binary="true"
-        ></p-checkbox>
-        <label class="ms-1">
-          Optimize results for diversity
-        </label>
-      </div>
-
-
-      @if (false) {
-        <div class="form-group mb-3">
-          <label for="querySongId">Query Song ID:</label>
-          <input
+        <div class="form-group">
+          <label for="dropdown">Song Selection:</label>
+          <p-dropdown
+            id="dropdown"
+            [options]="dropdownValues()"
+            optionLabel="name"
+            optionValue="value"
+            placeholder="Select a Song"
             [formControl]="retrievalForm.controls.songId"
-            [value]="retrievalForm.controls.songId"
-            type="text"
-            id="querySongId"
-            class="form-control"
-            name="querySongId"
-            placeholder="Enter query song ID"
-            required
-          />
+            [virtualScroll]="true"
+            [virtualScrollItemSize]="40"
+          ></p-dropdown>
         </div>
-      }
+      </div>
 
+      <!-- Checkbox Filters -->
       <div class="form-group mb-3">
-        <label class="mb-3">
-          Number of Songs to Retrieve: <b>{{retrievalForm.controls.count.value}}</b>
-        </label>
+        <label>Pick retrieval systems:</label>
+        <div class="d-flex flex-wrap gap-3 mt-3">
+          @for (category of categories; track category.key) {
+            <div class="d-flex align-items-center">
+              <p-checkbox
+                [inputId]="category.key"
+                name="category"
+                [value]="category.key"
+                [formControl]="retrievalForm.controls.retrievalSystem"
+              ></p-checkbox>
+              <label [for]="category.key" class="ms-1">
+                {{ category.name }}
+              </label>
+            </div>
+          }
+        </div>
+      </div>
 
+      <!-- Diversity Checkbox -->
+      <div class="d-flex align-items-center gap-3 mb-3">
+        <p-checkbox formControlName="diversity" binary="true"></p-checkbox>
+        <label class="ms-1">Optimize results for diversity</label>
+      </div>
+
+      <!-- Slider for Number of Songs -->
+      <div class="form-group mb-3">
+        <label>
+          Number of Songs to Retrieve: <b>{{ retrievalForm.controls.count.value }}</b>
+        </label>
         <p-slider [formControl]="retrievalForm.controls.count" [min]="10" [max]="100"></p-slider>
       </div>
 
-      <button
-        type="submit"
-        class="btn btn-primary"
-        [disabled]="isLoading() || !this.retrievalForm.controls.songId.value || !this.retrievalForm.controls.count.value"
-      >
-        Retrieve Songs
-      </button>
-
+      <!-- Buttons -->
+      <div class="d-flex gap-3">
+        <button
+          type="submit"
+          class="btn btn-primary"
+          [disabled]="isLoading() || !this.retrievalForm.controls.songId.value || !this.retrievalForm.controls.count.value"
+        >
+          Retrieve Songs
+        </button>
+        <button
+          type="button"
+        class="btn btn-secondary"
+        [disabled]="isLoading()"
+        (click)="recommenderService.resetRecommendations()"
+        >
+        Clear Results
+        </button>
+      </div>
 
     </form>
-
-    <button
-      class="btn btn-primary mt-3 mb-3"
-      [disabled]="isLoading()"
-      (click)="recommenderService.resetRecommendations()"
-    >
-      Clear Results
-    </button>
   </div>
-
 </div>

@@ -4,96 +4,78 @@
     <p>Loading... Please wait.</p>
   </div>
 }
-
-<div class="container">
-  @if (recommenderService.querySong()) {
-    <div class="mb-3">
-      <p-card header="Query Song" >
-        <div>
-          <p><strong>Title:</strong> {{ recommenderService.querySong()?.song_title }}</p>
-          <p><strong>Artist:</strong> {{ recommenderService.querySong()?.song_title }}</p>
-          <p><strong>Album:</strong> {{ recommenderService.querySong()?.album_name }}</p>
-          @for (genre of recommenderService.querySong()?.genres; track genre) {
-            <p-tag [value]="genre" />
-          }
-        </div>
-      </p-card>
-    </div>
-
-  }
-
-  <!-- Display retrieval results -->
-  @if (recommenderService.baselineRecommendations()) {
-    <app-retrieval-result-model
-      [retrievalResult]="recommenderService.baselineRecommendations()!"
-      [queryResult]="metricService.baselineMetrics"
-      retrievalSystem="Baseline Model"
-    />
-  }
-  @if (recommenderService.tfIdfRecommendations()) {
-    <app-retrieval-result-model
-      [retrievalResult]="recommenderService.tfIdfRecommendations()!"
-      [queryResult]="metricService.tfidfMetrics"
-      retrievalSystem="TfIdf Model"
-    />
-  }
-  @if (recommenderService.bertRecommendations()) {
-    <app-retrieval-result-model
-      [retrievalResult]="recommenderService.bertRecommendations()!"
-      [queryResult]="metricService.bertMetrics"
-      retrievalSystem="BERT Model"
-    />
-  }
-  @if (recommenderService.mfccbowRecommendations()) {
-    <app-retrieval-result-model
-      [retrievalResult]="recommenderService.mfccbowRecommendations()!"
-      [queryResult]="metricService.mfccbowMetrics"
-      retrievalSystem="MFCC BoW Model"
-    />
-  }
-  @if (recommenderService.mfccbowCosRecommendations()) {
-    <app-retrieval-result-model
-      [retrievalResult]="recommenderService.mfccbowCosRecommendations()!"
-      [queryResult]="metricService.mfccbowCosMetrics"
-      retrievalSystem="MFCC BoW Model (Cosine sim)"
-    />
-  }
-  @if (recommenderService.mfccstatRecommendations()) {
-    <app-retrieval-result-model
-      [retrievalResult]="recommenderService.mfccstatRecommendations()!"
-      [queryResult]="metricService.mfccstatMetrics"
-      retrievalSystem="MFCC Stat Model"
-    />
-  }
-  @if (recommenderService.mfccstatCosRecommendations()) {
-    <app-retrieval-result-model
-      [retrievalResult]="recommenderService.mfccstatCosRecommendations()!"
-      [queryResult]="metricService.mfccstatCosMetrics"
-      retrievalSystem="MFCC Stat Model (Cosine similarity)"
-    />
-  }
-  @if (recommenderService.resNetRecommendations()) {
-    <app-retrieval-result-model
-      [retrievalResult]="recommenderService.resNetRecommendations()!"
-      [queryResult]="metricService.resnetMetrics"
-      retrievalSystem="ResNet Model"
-    />
-  }
-  @if (recommenderService.vgg19Recommendations()) {
-    <app-retrieval-result-model
-      [retrievalResult]="recommenderService.vgg19Recommendations()!"
-      [queryResult]="metricService.vgg19Metrics"
-      retrievalSystem="VGG19 Model"
-    />
-  }
-  @if (recommenderService.lamdaMARTRecommendations()) {
-    <app-retrieval-result-model
-      [retrievalResult]="recommenderService.lamdaMARTRecommendations()!"
-      [queryResult]="metricService.lamdaMARTMetrics"
-      retrievalSystem="LamdaMART Model"
-    />
-  }
-
+<div class="m-3">
+  <div class="retrieval-results-container"
+       [class.single-result]="recommenderService.retrievalResults.length === 1">
+    @if (recommenderService.baselineRecommendations()) {
+      <app-retrieval-result-model
+        [retrievalResult]="recommenderService.baselineRecommendations()!"
+        [queryResult]="metricService.baselineMetrics"
+        retrievalSystem="Baseline Model"
+      />
+    }
+    @if (recommenderService.tfIdfRecommendations()) {
+      <app-retrieval-result-model
+        [retrievalResult]="recommenderService.tfIdfRecommendations()!"
+        [queryResult]="metricService.tfidfMetrics"
+        retrievalSystem="TfIdf Model"
+      />
+    }
+    @if (recommenderService.bertRecommendations()) {
+      <app-retrieval-result-model
+        [retrievalResult]="recommenderService.bertRecommendations()!"
+        [queryResult]="metricService.bertMetrics"
+        retrievalSystem="BERT Model"
+      />
+    }
+    @if (recommenderService.mfccbowRecommendations()) {
+      <app-retrieval-result-model
+        [retrievalResult]="recommenderService.mfccbowRecommendations()!"
+        [queryResult]="metricService.mfccbowMetrics"
+        retrievalSystem="MFCC BoW Model"
+      />
+    }
+    @if (recommenderService.mfccbowCosRecommendations()) {
+      <app-retrieval-result-model
+        [retrievalResult]="recommenderService.mfccbowCosRecommendations()!"
+        [queryResult]="metricService.mfccbowCosMetrics"
+        retrievalSystem="MFCC BoW Model (Cosine sim)"
+      />
+    }
+    @if (recommenderService.mfccstatRecommendations()) {
+      <app-retrieval-result-model
+        [retrievalResult]="recommenderService.mfccstatRecommendations()!"
+        [queryResult]="metricService.mfccstatMetrics"
+        retrievalSystem="MFCC Stat Model"
+      />
+    }
+    @if (recommenderService.mfccstatCosRecommendations()) {
+      <app-retrieval-result-model
+        [retrievalResult]="recommenderService.mfccstatCosRecommendations()!"
+        [queryResult]="metricService.mfccstatCosMetrics"
+        retrievalSystem="MFCC Stat Model (Cosine similarity)"
+      />
+    }
+    @if (recommenderService.resNetRecommendations()) {
+      <app-retrieval-result-model
+        [retrievalResult]="recommenderService.resNetRecommendations()!"
+        [queryResult]="metricService.resnetMetrics"
+        retrievalSystem="ResNet Model"
+      />
+    }
+    @if (recommenderService.vgg19Recommendations()) {
+      <app-retrieval-result-model
+        [retrievalResult]="recommenderService.vgg19Recommendations()!"
+        [queryResult]="metricService.vgg19Metrics"
+        retrievalSystem="VGG19 Model"
+      />
+    }
+    @if (recommenderService.lamdaMARTRecommendations()) {
+      <app-retrieval-result-model
+        [retrievalResult]="recommenderService.lamdaMARTRecommendations()!"
+        [queryResult]="metricService.lamdaMARTMetrics"
+        retrievalSystem="LamdaMART Model"
+      />
+    }
+  </div>
 </div>
-
-

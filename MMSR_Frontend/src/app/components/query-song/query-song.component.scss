@@ -1,0 +1,24 @@
+
+.query-song-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 20vh;
+  margin-bottom: 20px;
+}
+
+.query-song {
+  border-radius: 8px;
+  overflow: hidden;
+  background-color: #ffffff;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.query-song p {
+  margin: 8px 0;
+}
+
+.query-song p-tag {
+  margin-right: 8px;
+}

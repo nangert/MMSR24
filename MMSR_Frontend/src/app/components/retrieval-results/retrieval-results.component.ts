@@ -36,4 +36,5 @@ export class RetrievalResultsComponent {
     return this.dataService.isLoadingSongs() || this.recommenderService.isLoadingRecommendations()
   })
 
+
 }

@@ -1,4 +1,11 @@
-<div>
-  <app-filter/>
-  <app-retrieval-results />
+<div
+  class="top-row"
+  [class.single]="!recommenderService.querySong()"
+>
+  <app-filter></app-filter>
+  @if (recommenderService.querySong()) {
+    <app-query-song class="query_song"></app-query-song>
+  }
 </div>
+
+<app-retrieval-results></app-retrieval-results>

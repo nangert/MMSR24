@@ -1,8 +1,4 @@
-.container {
-  max-width: 600px;
-  margin: 0 auto;
-  padding: 20px;
-}
+
 
 h1 {
   text-align: center;
@@ -22,21 +18,20 @@ button {
   font-size: 18px;
 }
 
-.query-song {
-  background-color: #f8f9fa;
-  padding: 15px;
-  border-radius: 5px;
-  margin-bottom: 20px;
+
+.page-layout {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
 }
 
-.retrieved-songs {
-  list-style-type: none;
-  padding: 0;
+.top-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
-.retrieved-songs li {
-  background-color: #f0f0f0;
-  padding: 10px;
-  margin-bottom: 5px;
-  border-radius: 5px;
+.top-row.single {
+  justify-content: center;
 }

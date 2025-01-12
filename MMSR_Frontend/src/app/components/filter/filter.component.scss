@@ -1,12 +1,30 @@
 :host ::ng-deep p-dropdown .p-dropdown {
-  width: 50%;
+  width: 100%; /* Adjust dropdown to match other inputs */
 }
 
 :host ::ng-deep p-dropdown .p-dropdown-panel {
-  width: 50%;
+  width: auto; /* Dropdown panel adjusts automatically */
 }
 
 :host ::ng-deep p-slider .p-slider {
-  width: 50%;
+  width: 100%;
 }
 
+form {
+  max-width: 800px; /* Restrict form width for better readability */
+  margin: 0 auto; /* Center the form on the page */
+  padding: 16px; /* Add padding */
+  background-color: #f9f9f9; /* Light background for the form */
+  border-radius: 8px; /* Rounded corners */
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+}
+
+.form-group label {
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.form-group {
+  flex: 1;
+  min-width: 200px; /* Ensure fields don't shrink too much */
+}

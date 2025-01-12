@@ -1,4 +1,4 @@
-import {inject, Injectable, Signal, signal, WritableSignal} from '@angular/core';
+import {computed, inject, Injectable, Signal, signal, WritableSignal} from '@angular/core';
 import {Observable, of, shareReplay, Subject, switchMap, tap} from 'rxjs';
 import {RetrieveResult, Song} from '../models/retrieveResult';
 import {RecommenderApiService} from './recommender-api.service';
@@ -10,6 +10,43 @@ import {RetrieveApiModel} from '../models/retrieveModel';
 })
 export class RecommenderService {
   private apiService = inject(RecommenderApiService)
+
+  retrievalResults = computed(() => {
+    const list = []
+
+    if (this.baselineRecommendations()) {
+      list.push(this.baselineRecommendations());
+    }
+    if (this.tfIdfRecommendations()) {
+      list.push(this.tfIdfRecommendations());
+    }
+    if (this.bertRecommendations()) {
+      list.push(this.bertRecommendations());
+    }
+    if (this.mfccbowRecommendations()) {
+      list.push(this.mfccbowRecommendations());
+    }
+    if (this.mfccbowCosRecommendations()) {
+      list.push(this.mfccbowCosRecommendations());
+    }
+    if (this.mfccstatRecommendations()) {
+      list.push(this.mfccstatRecommendations());
+    }
+    if (this.mfccstatCosRecommendations()) {
+      list.push(this.mfccstatCosRecommendations());
+    }
+    if (this.resNetRecommendations()) {
+      list.push(this.resNetRecommendations());
+    }
+    if (this.vgg19Recommendations()) {
+      list.push(this.vgg19Recommendations());
+    }
+    if (this.lamdaMARTRecommendations()) {
+      list.push(this.lamdaMARTRecommendations());
+    }
+
+    return list
+  })
 
   isLoadingRecommendations: WritableSignal<boolean> = signal(false)
   querySong: WritableSignal<Song | undefined> = signal(undefined)
