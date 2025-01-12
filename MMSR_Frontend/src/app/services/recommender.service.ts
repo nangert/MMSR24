@@ -2,7 +2,7 @@ import {computed, inject, Injectable, Signal, signal, WritableSignal} from '@ang
 import {Observable, of, shareReplay, Subject, switchMap, tap} from 'rxjs';
 import {RetrieveResult, Song} from '../models/retrieveResult';
 import {RecommenderApiService} from './recommender-api.service';
-import {toSignal} from '@angular/core/rxjs-interop';
+import {toObservable, toSignal} from '@angular/core/rxjs-interop';
 import {RetrieveApiModel} from '../models/retrieveModel';
 
 @Injectable({
@@ -47,6 +47,8 @@ export class RecommenderService {
 
     return list
   })
+
+  retrievalResults$ = toObservable(this.retrievalResults)
 
   isLoadingRecommendations: WritableSignal<boolean> = signal(false)
   querySong: WritableSignal<Song | undefined> = signal(undefined)

@@ -49,9 +49,9 @@ tfidf_retrieval_system = TFIDFRetrievalSystem(dataset, tfidf_embeddings_path)
 lambdarank_model = 'models/lambdarank_model.pth'
 lambdarank_retrieval_system = LambdaRankRetrievalSystem(dataset, lambdarank_model, dataset.lambdarank_feature_dim)
 early_fusion_retrieval_system = EarlyFusionRetrievalSystem(dataset, dataset.bert_embeddings, dataset.resnet_embeddings,
-                                                           dataset.mfcc_embeddings_stat, 'dataset/svm_model.pkl')
+                                                           dataset.mfcc_embeddings_stat, 'models/svm_model.pkl')
 late_fusion_retrieval_system = LateFusionRetrievalSystem(dataset, dataset.bert_embeddings, dataset.resnet_embeddings,
-                                                         dataset.mfcc_embeddings_stat, 'dataset/late_fusion_model.pkl')
+                                                         dataset.mfcc_embeddings_stat, 'models/late_fusion_model.pkl')
 
 
 @app.route('/calculate_metrics', methods=['POST'])
