@@ -19,84 +19,94 @@ export class RecommenderApiService {
     return this.http.get<Song[]>(`${this.baseUrl}/songs`);
   }
 
-  getBaselineRecommendations(querySongId: string, N: number): Observable<RetrieveResult> {
+  getBaselineRecommendations(querySongId: string, N: number, diversity: boolean): Observable<RetrieveResult> {
     const url = `${this.baseUrl}/retrieve/baseline`;
     return this.http.post<RetrieveResult>(url, {
       query_song_id: querySongId,
-      N: N
+      N: N,
+      diversity: diversity
     });
   }
 
-  getTfIdfRecommendations(querySongId: string, N: number): Observable<RetrieveResult> {
+  getTfIdfRecommendations(querySongId: string, N: number, diversity: boolean): Observable<RetrieveResult> {
     const url = `${this.baseUrl}/retrieve/tfidf`;
     return this.http.post<RetrieveResult>(url, {
       query_song_id: querySongId,
-      N: N
+      N: N,
+      diversity: diversity
     });
   }
 
-  getBertRecommendations(querySongId: string, N: number): Observable<RetrieveResult> {
+  getBertRecommendations(querySongId: string, N: number, diversity: boolean): Observable<RetrieveResult> {
     const url = `${this.baseUrl}/retrieve/bert`;
     return this.http.post<RetrieveResult>(url, {
       query_song_id: querySongId,
-      N: N
+      N: N,
+      diversity: diversity
     });
   }
 
-  getMFCCBOWRecommendations(querySongId: string, N: number): Observable<RetrieveResult> {
+  getMFCCBOWRecommendations(querySongId: string, N: number, diversity: boolean): Observable<RetrieveResult> {
     const url = `${this.baseUrl}/retrieve/mfcc-bow`;
     return this.http.post<RetrieveResult>(url, {
       query_song_id: querySongId,
-      N: N
+      N: N,
+      diversity: diversity
     });
   }
 
-  getMFCCBOWCosRecommendations(querySongId: string, N: number): Observable<RetrieveResult> {
+  getMFCCBOWCosRecommendations(querySongId: string, N: number, diversity: boolean): Observable<RetrieveResult> {
     const url = `${this.baseUrl}/retrieve/mfcc-bow-cos`;
     return this.http.post<RetrieveResult>(url, {
       query_song_id: querySongId,
-      N: N
+      N: N,
+      diversity: diversity
     });
   }
 
 
-  getMFCCSTATRecommendations(querySongId: string, N: number): Observable<RetrieveResult> {
+  getMFCCSTATRecommendations(querySongId: string, N: number, diversity: boolean): Observable<RetrieveResult> {
     const url = `${this.baseUrl}/retrieve/mfcc-stat`;
     return this.http.post<RetrieveResult>(url, {
       query_song_id: querySongId,
-      N: N
+      N: N,
+      diversity: diversity
     });
   }
 
-  getMFCCSTATCosRecommendations(querySongId: string, N: number): Observable<RetrieveResult> {
+  getMFCCSTATCosRecommendations(querySongId: string, N: number, diversity: boolean): Observable<RetrieveResult> {
     const url = `${this.baseUrl}/retrieve/mfcc-stat-cos`;
     return this.http.post<RetrieveResult>(url, {
       query_song_id: querySongId,
-      N: N
+      N: N,
+      diversity: diversity
     });
   }
 
-  getResNetRecommendations(querySongId: string, N: number): Observable<RetrieveResult> {
+  getResNetRecommendations(querySongId: string, N: number, diversity: boolean): Observable<RetrieveResult> {
     const url = `${this.baseUrl}/retrieve/resnet`;
     return this.http.post<RetrieveResult>(url, {
       query_song_id: querySongId,
-      N: N
+      N: N,
+      diversity: diversity
     });
   }
 
-  getVGG19Recommendations(querySongId: string, N: number): Observable<RetrieveResult> {
+  getVGG19Recommendations(querySongId: string, N: number, diversity: boolean): Observable<RetrieveResult> {
     const url = `${this.baseUrl}/retrieve/vgg19`;
     return this.http.post<RetrieveResult>(url, {
       query_song_id: querySongId,
-      N: N
+      N: N,
+      diversity: diversity
     });
   }
 
-  getLamdaMARTRecommendations(querySongId: string, N: number): Observable<RetrieveResult> {
+  getLamdaMARTRecommendations(querySongId: string, N: number, diversity: boolean): Observable<RetrieveResult> {
     const url = `${this.baseUrl}/retrieve/lambda`;
     return this.http.post<RetrieveResult>(url, {
       query_song_id: querySongId,
-      N: N
+      N: N,
+      diversity: diversity
     });
   }
 

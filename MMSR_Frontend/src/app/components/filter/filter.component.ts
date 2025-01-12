@@ -8,7 +8,6 @@ import {InputTextModule} from "primeng/inputtext";
 import {FilterModel} from "../../models/filter.model";
 import {toSignal} from "@angular/core/rxjs-interop";
 import {RadioButtonModule} from "primeng/radiobutton";
-import {MetricsService} from "../../services/metrics.service";
 import {DataService} from "../../services/data.service";
 import {CheckboxModule} from "primeng/checkbox";
 import {SliderModule} from "primeng/slider";
@@ -48,6 +47,7 @@ export class FilterComponent implements OnInit{
     songId: '',
     count: 10,
     retrievalSystem: this.formBuilder.control([this.categories[0].key]),
+    diversity: false
   }) as FormGroup<RetrieveModel>;
 
   filterForm: FormGroup<FilterModel> = this.formBuilder.group({
@@ -88,14 +88,13 @@ export class FilterComponent implements OnInit{
   retrieveSongs(): void {
     const model: RetrieveApiModel = {
       songId: this.retrievalForm.controls.songId.value,
-      count: this.retrievalForm.controls.count.value
+      count: this.retrievalForm.controls.count.value,
+      diversity: this.retrievalForm.controls.diversity.value
     }
 
     if (!model.songId || !model.count) return
 
-    if (model.songId !== this.recommenderService.querySong()?.song_id) {
-      this.recommenderService.resetRecommendations()
-    }
+    this.recommenderService.resetRecommendations()
 
     for (let retrievalSystem of this.retrievalForm.controls.retrievalSystem.value) {
       switch (retrievalSystem) {
@@ -124,7 +123,5 @@ export class FilterComponent implements OnInit{
           this.recommenderService.getBaselineRecommendations.next(model)
       }
     }
-
-
   }
 }

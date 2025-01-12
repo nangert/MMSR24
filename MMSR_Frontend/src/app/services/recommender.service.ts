@@ -1,5 +1,5 @@
 import {inject, Injectable, Signal, signal, WritableSignal} from '@angular/core';
-import {Observable, of, Subject, switchMap, tap} from 'rxjs';
+import {Observable, of, shareReplay, Subject, switchMap, tap} from 'rxjs';
 import {RetrieveResult, Song} from '../models/retrieveResult';
 import {RecommenderApiService} from './recommender-api.service';
 import {toSignal} from '@angular/core/rxjs-interop';
@@ -23,12 +23,16 @@ export class RecommenderService {
 
       this.isLoadingRecommendations.set(true)
 
-      return this.apiService.getBaselineRecommendations(model.songId, model.count).pipe(
+      return this.apiService.getBaselineRecommendations(model.songId, model.count, model.diversity).pipe(
         tap((res) => {
           this.querySong.set(res.query_song)
           this.isLoadingRecommendations.set(false)
         })
       )
+    }),
+    shareReplay({
+      bufferSize: 1,
+      refCount: true
     })
   )
   baselineRecommendations: Signal<RetrieveResult | undefined> = toSignal(this.baselineRecommendations$)
@@ -42,12 +46,16 @@ export class RecommenderService {
 
       this.isLoadingRecommendations.set(true)
 
-      return this.apiService.getTfIdfRecommendations(model.songId, model.count).pipe(
+      return this.apiService.getTfIdfRecommendations(model.songId, model.count, model.diversity).pipe(
         tap((res) => {
           this.querySong.set(res.query_song)
           this.isLoadingRecommendations.set(false)
         })
       )
+    }),
+    shareReplay({
+      bufferSize: 1,
+      refCount: true
     })
   )
   tfIdfRecommendations: Signal<RetrieveResult | undefined> = toSignal(this.tfIdfRecommendations$)
@@ -61,12 +69,16 @@ export class RecommenderService {
 
       this.isLoadingRecommendations.set(true)
 
-      return this.apiService.getBertRecommendations(model.songId, model.count).pipe(
+      return this.apiService.getBertRecommendations(model.songId, model.count, model.diversity).pipe(
         tap((res) => {
           this.querySong.set(res.query_song)
           this.isLoadingRecommendations.set(false)
         })
       )
+    }),
+    shareReplay({
+      bufferSize: 1,
+      refCount: true
     })
   )
   bertRecommendations: Signal<RetrieveResult | undefined> = toSignal(this.bertRecommendations$)
@@ -80,12 +92,16 @@ export class RecommenderService {
 
       this.isLoadingRecommendations.set(true)
 
-      return this.apiService.getMFCCBOWRecommendations(model.songId, model.count).pipe(
+      return this.apiService.getMFCCBOWRecommendations(model.songId, model.count, model.diversity).pipe(
         tap((res) => {
           this.querySong.set(res.query_song)
           this.isLoadingRecommendations.set(false)
         })
       )
+    }),
+    shareReplay({
+      bufferSize: 1,
+      refCount: true
     })
   )
   mfccbowRecommendations: Signal<RetrieveResult | undefined> = toSignal(this.mfccbowRecommendations$)
@@ -96,12 +112,16 @@ export class RecommenderService {
 
       this.isLoadingRecommendations.set(true)
 
-      return this.apiService.getMFCCBOWCosRecommendations(model.songId, model.count).pipe(
+      return this.apiService.getMFCCBOWCosRecommendations(model.songId, model.count, model.diversity).pipe(
         tap((res) => {
           this.querySong.set(res.query_song)
           this.isLoadingRecommendations.set(false)
         })
       )
+    }),
+    shareReplay({
+      bufferSize: 1,
+      refCount: true
     })
   )
   mfccbowCosRecommendations: Signal<RetrieveResult | undefined> = toSignal(this.mfccbowCosRecommendations$)
@@ -112,12 +132,16 @@ export class RecommenderService {
 
       this.isLoadingRecommendations.set(true)
 
-      return this.apiService.getMFCCSTATRecommendations(model.songId, model.count).pipe(
+      return this.apiService.getMFCCSTATRecommendations(model.songId, model.count, model.diversity).pipe(
         tap((res) => {
           this.querySong.set(res.query_song)
           this.isLoadingRecommendations.set(false)
         })
       )
+    }),
+    shareReplay({
+      bufferSize: 1,
+      refCount: true
     })
   )
   mfccstatRecommendations: Signal<RetrieveResult | undefined> = toSignal(this.mfccstatRecommendations$)
@@ -128,12 +152,16 @@ export class RecommenderService {
 
       this.isLoadingRecommendations.set(true)
 
-      return this.apiService.getMFCCSTATCosRecommendations(model.songId, model.count).pipe(
+      return this.apiService.getMFCCSTATCosRecommendations(model.songId, model.count, model.diversity).pipe(
         tap((res) => {
           this.querySong.set(res.query_song)
           this.isLoadingRecommendations.set(false)
         })
       )
+    }),
+    shareReplay({
+      bufferSize: 1,
+      refCount: true
     })
   )
   mfccstatCosRecommendations: Signal<RetrieveResult | undefined> = toSignal(this.mfccstatCosRecommendations$)
@@ -147,12 +175,16 @@ export class RecommenderService {
 
       this.isLoadingRecommendations.set(true)
 
-      return this.apiService.getResNetRecommendations(model.songId, model.count).pipe(
+      return this.apiService.getResNetRecommendations(model.songId, model.count, model.diversity).pipe(
         tap((res) => {
           this.querySong.set(res.query_song)
           this.isLoadingRecommendations.set(false)
         })
       )
+    }),
+    shareReplay({
+      bufferSize: 1,
+      refCount: true
     })
   )
   resNetRecommendations: Signal<RetrieveResult | undefined> = toSignal(this.resNetRecommendations$)
@@ -166,12 +198,16 @@ export class RecommenderService {
 
       this.isLoadingRecommendations.set(true)
 
-      return this.apiService.getVGG19Recommendations(model.songId, model.count).pipe(
+      return this.apiService.getVGG19Recommendations(model.songId, model.count, model.diversity).pipe(
         tap((res) => {
           this.querySong.set(res.query_song)
           this.isLoadingRecommendations.set(false)
         })
       )
+    }),
+    shareReplay({
+      bufferSize: 1,
+      refCount: true
     })
   )
   vgg19Recommendations: Signal<RetrieveResult | undefined> = toSignal(this.vgg19Recommendations$)
@@ -185,12 +221,16 @@ export class RecommenderService {
 
       this.isLoadingRecommendations.set(true)
 
-      return this.apiService.getLamdaMARTRecommendations(model.songId, model.count).pipe(
+      return this.apiService.getLamdaMARTRecommendations(model.songId, model.count, model.diversity).pipe(
         tap((res) => {
           this.querySong.set(res.query_song)
           this.isLoadingRecommendations.set(false)
         })
       )
+    }),
+    shareReplay({
+      bufferSize: 1,
+      refCount: true
     })
   )
   lamdaMARTRecommendations: Signal<RetrieveResult | undefined> = toSignal(this.lamdaMARTRecommendations$)

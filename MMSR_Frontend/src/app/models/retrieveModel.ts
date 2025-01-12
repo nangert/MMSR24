@@ -3,12 +3,14 @@ import {FormControl} from '@angular/forms';
 export interface RetrieveModel {
   songId: FormControl<string>,
   count: FormControl<number>,
-  retrievalSystem: FormControl<any>
+  retrievalSystem: FormControl<any>,
+  diversity: FormControl<boolean>,
 }
 
 export interface RetrieveApiModel {
   songId: string,
-  count: number
+  count: number,
+  diversity: boolean,
 }
 
 export interface QueryMetrics {

@@ -4,6 +4,7 @@ from flask_cors import CORS  # Import the CORS library
 from numpy import number
 
 from Music4All import Dataset, Song
+from diversity.song_diversity_optimizer import SongDiversityOptimizer
 from flask_server_utilities import get_query_data
 from metrics.accuracy_metrics import Metrics
 from retrieval_systems.baseline_system import BaselineRetrievalSystem
@@ -24,6 +25,7 @@ bert_embeddings_path = 'dataset/id_lyrics_bert_mmsr.tsv'
 resnet_embeddings_path = 'dataset/id_resnet_mmsr.tsv'
 vgg19_embeddings_path = 'dataset/id_vgg19_mmsr.tsv'
 tfidf_embeddings_path = 'dataset/id_lyrics_tf-idf_mmsr.tsv'
+tags_dataset_path = 'dataset/id_tags_dict.tsv'
 
 bow_path = 'dataset/id_mfcc_bow_mmsr.tsv'
 stats_path = 'dataset/id_mfcc_stats_mmsr.tsv'
@@ -31,6 +33,8 @@ stats_path = 'dataset/id_mfcc_stats_mmsr.tsv'
 dataset = Dataset(info_dataset_path, genres_dataset_path, url_dataset_path,
                   metadata_dataset_path, bert_embeddings_path, resnet_embeddings_path,
                   vgg19_embeddings_path, bow_path, stats_path)
+
+diversity_optimizer = SongDiversityOptimizer(tags_dataset_path)
 
 bert_retrieval_system = EmbeddingRetrievalSystem(dataset, dataset.bert_embeddings, "Bert")
 resnet_retrieval_system = EmbeddingRetrievalSystem(dataset, dataset.resnet_embeddings, "ResNet")
@@ -107,145 +111,159 @@ def get_songs():
 
 @app.route('/retrieve/baseline', methods=['POST'])
 def retrieve_baseline():
-    query_song, n = get_query_data(request.get_json(), dataset)
+    query_song, n, diversity_optimization = get_query_data(request.get_json(), dataset)
 
     if not query_song:
         return jsonify({"error": "Query song not found"}), 404
 
-    return retrieve_songs(query_song, n, model='Baseline')
+    return retrieve_songs(query_song, n, diversity_optimization, model='Baseline')
 
 @app.route('/retrieve/tfidf', methods=['POST'])
 def retrieve_tfidf():
-    query_song, n = get_query_data(request.get_json(), dataset)
+    query_song, n, diversity_optimization = get_query_data(request.get_json(), dataset)
 
     if not query_song:
         return jsonify({"error": "Query song not found"}), 404
 
-    return retrieve_songs(query_song, n, model='TfIdf')
+    return retrieve_songs(query_song, n, diversity_optimization, model='TfIdf')
 
 @app.route('/retrieve/bert', methods=['POST'])
 def retrieve_bert():
-    query_song, n = get_query_data(request.get_json(), dataset)
+    query_song, n, diversity_optimization = get_query_data(request.get_json(), dataset)
 
     if not query_song:
         return jsonify({"error": "Query song not found"}), 404
 
-    return retrieve_songs(query_song, n, model='Bert')
+    return retrieve_songs(query_song, n, diversity_optimization, model='Bert')
 
 @app.route('/retrieve/mfcc-bow', methods=['POST'])
 def retrieve_mfcc_bow():
-    query_song, n = get_query_data(request.get_json(), dataset)
+    query_song, n, diversity_optimization = get_query_data(request.get_json(), dataset)
 
     if not query_song:
         return jsonify({"error": "Query song not found"}), 404
 
-    return retrieve_songs(query_song, n, model='MFCCBOW')
+    return retrieve_songs(query_song, n, diversity_optimization, model='MFCCBOW')
 
 @app.route('/retrieve/mfcc-bow-cos', methods=['POST'])
 def retrieve_mfcc_bow_cos():
-    query_song, n = get_query_data(request.get_json(), dataset)
+    query_song, n, diversity_optimization = get_query_data(request.get_json(), dataset)
 
     if not query_song:
         return jsonify({"error": "Query song not found"}), 404
 
-    return retrieve_songs(query_song, n, model='MFCCBOWCOS')
+    return retrieve_songs(query_song, n, diversity_optimization, model='MFCCBOWCOS')
 
 @app.route('/retrieve/mfcc-stat', methods=['POST'])
 def retrieve_mfcc_stat():
-    query_song, n = get_query_data(request.get_json(), dataset)
+    query_song, n, diversity_optimization = get_query_data(request.get_json(), dataset)
 
     if not query_song:
         return jsonify({"error": "Query song not found"}), 404
 
-    return retrieve_songs(query_song, n, model='MFCCSTAT')
+    return retrieve_songs(query_song, n, diversity_optimization, model='MFCCSTAT')
 
 @app.route('/retrieve/mfcc-stat-cos', methods=['POST'])
 def retrieve_mfcc_stat_cos():
-    query_song, n = get_query_data(request.get_json(), dataset)
+    query_song, n, diversity_optimization = get_query_data(request.get_json(), dataset)
 
     if not query_song:
         return jsonify({"error": "Query song not found"}), 404
 
-    return retrieve_songs(query_song, n, model='MFCCSTATCOS')
+    return retrieve_songs(query_song, n, diversity_optimization, model='MFCCSTATCOS')
 
 @app.route('/retrieve/resnet', methods=['POST'])
 def retrieve_resnet():
-    query_song, n = get_query_data(request.get_json(), dataset)
+    query_song, n, diversity_optimization = get_query_data(request.get_json(), dataset)
 
     if not query_song:
         return jsonify({"error": "Query song not found"}), 404
 
-    return retrieve_songs(query_song, n, model='ResNet')
+    return retrieve_songs(query_song, n, diversity_optimization, model='ResNet')
 
 @app.route('/retrieve/vgg19', methods=['POST'])
 def retrieve_vgg19():
-    query_song, n = get_query_data(request.get_json(), dataset)
+    query_song, n, diversity_optimization = get_query_data(request.get_json(), dataset)
 
     if not query_song:
         return jsonify({"error": "Query song not found"}), 404
 
-    return retrieve_songs(query_song, n, model='VGG19')
+    return retrieve_songs(query_song, n, diversity_optimization, model='VGG19')
 
 @app.route('/retrieve/lambda', methods=['POST'])
 def retrieve_lamdba_mart():
-    query_song, n = get_query_data(request.get_json(), dataset)
+    query_song, n, diversity_optimization = get_query_data(request.get_json(), dataset)
 
     if not query_song:
         return jsonify({"error": "Query song not found"}), 404
 
-    return retrieve_songs(query_song, n, model='LambdaMART')
+    return retrieve_songs(query_song, n, diversity_optimization, model='LambdaMART')
 
-def retrieve_songs(query_song: Song, n: number, model: str):
+def retrieve_songs(query_song: Song, n: number, diversity_optimization: bool, model: str):
+    if diversity_optimization:
+        adapted_n = 5 * n
+    else:
+        adapted_n = n
+
     match model:
         case 'Baseline':
             print('baseline')
-            retrieved_songs = baseline_retrieval_system.get_retrieval(query_song, n)
+            retrieved_songs = baseline_retrieval_system.get_retrieval(query_song, adapted_n)
         case 'TfIdf':
             print('tfidf')
-            retrieved_songs = tfidf_retrieval_system.retrieve(query_song.song_id, n)
+            retrieved_songs = tfidf_retrieval_system.retrieve(query_song.song_id, adapted_n)
         case 'Bert':
             print('bert')
-            retrieved_songs = bert_retrieval_system.get_retrieval(query_song, n)
+            retrieved_songs = bert_retrieval_system.get_retrieval(query_song, adapted_n)
         case 'MFCCBOW':
             print('mfccbow')
             if n <= 100:
-                retrieved_songs = mfcc_retrieval_system.recommend_similar_songs_bow(query_song, n)
+                retrieved_songs = mfcc_retrieval_system.recommend_similar_songs_bow(query_song, adapted_n)
             else:
                 # Compute similarities on the fly
-                retrieved_songs = mfcc_retrieval_system.compute_recommendations_bow(query_song, n)
+                retrieved_songs = mfcc_retrieval_system.compute_recommendations_bow(query_song, adapted_n)
         case 'MFCCBOWCOS':
             print('mfccbowcos')
             if n <= 100:
-                retrieved_songs = mfcc_retrieval_system.recommend_similar_songs_bow_cos(query_song, n)
+                retrieved_songs = mfcc_retrieval_system.recommend_similar_songs_bow_cos(query_song, adapted_n)
             else:
                 # Compute similarities on the fly
-                retrieved_songs = mfcc_retrieval_system.compute_recommendations_bow_cos(query_song, n)
+                retrieved_songs = mfcc_retrieval_system.compute_recommendations_bow_cos(query_song, adapted_n)
         case 'MFCCSTAT':
             print('mfccstat')
             if n <= 100:
-                retrieved_songs = mfcc_retrieval_system.recommend_similar_songs_stat(query_song, n)
+                retrieved_songs = mfcc_retrieval_system.recommend_similar_songs_stat(query_song, adapted_n)
             else:
                 # Compute similarities on the fly
-                retrieved_songs = mfcc_retrieval_system.compute_recommendations_stat(query_song, n)
+                retrieved_songs = mfcc_retrieval_system.compute_recommendations_stat(query_song, adapted_n)
         case 'MFCCSTATCOS':
             print('mfccstatcos')
             if n <= 100:
-                retrieved_songs = mfcc_retrieval_system.recommend_similar_songs_stat_cos(query_song, n)
+                retrieved_songs = mfcc_retrieval_system.recommend_similar_songs_stat_cos(query_song, adapted_n)
             else:
                 # Compute similarities on the fly
-                retrieved_songs = mfcc_retrieval_system.compute_recommendations_stat_cos(query_song, n)
+                retrieved_songs = mfcc_retrieval_system.compute_recommendations_stat_cos(query_song, adapted_n)
         case 'ResNet':
             print('resnet')
-            retrieved_songs = resnet_retrieval_system.get_retrieval(query_song, n)
+            retrieved_songs = resnet_retrieval_system.get_retrieval(query_song, adapted_n)
         case 'VGG19':
             print('vgg19')
-            retrieved_songs = vgg19_retrieval_system.get_retrieval(query_song, n)
+            retrieved_songs = vgg19_retrieval_system.get_retrieval(query_song, adapted_n)
         case 'LambdaMART':
             print('lambdamart')
-            retrieved_songs = lambdamart_retrieval_system.get_retrieval(query_song, n)
+            retrieved_songs = lambdamart_retrieval_system.get_retrieval(query_song, adapted_n)
         case _:
             print('default')
-            retrieved_songs = bert_retrieval_system.get_retrieval(query_song, n)
+            retrieved_songs = bert_retrieval_system.get_retrieval(query_song, adapted_n)
+
+
+    print('diversity before optimization')
+    print(diversity_optimizer.calculate_diversity_score(retrieved_songs, n))
+    if diversity_optimization:
+        retrieved_songs = diversity_optimizer.greedy_optimize_diversity(retrieved_songs, n)
+
+    print('diversity after optimization')
+    print(diversity_optimizer.calculate_diversity_score(retrieved_songs))
 
     response = {
         'query_song': query_song.to_dict(),
