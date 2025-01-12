@@ -9,9 +9,11 @@ from flask_server_utilities import get_query_data
 from metrics.accuracy_metrics import Metrics
 from retrieval_systems.baseline_system import BaselineRetrievalSystem
 from retrieval_systems.embedding_system import EmbeddingRetrievalSystem
-from retrieval_systems.lambdamart_system import LambdaMARTRetrievalSystem
+from retrieval_systems.lambdarank_system import LambdaRankRetrievalSystem
 from retrieval_systems.mfcc_retrieval import MFCCRetrievalSystem
 from retrieval_systems.tfidf_retrieval import TFIDFRetrievalSystem
+from retrieval_systems.early_fusion import EarlyFusionRetrievalSystem
+from retrieval_systems.late_fusion import LateFusionRetrievalSystem
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
@@ -26,13 +28,14 @@ resnet_embeddings_path = 'dataset/id_resnet_mmsr.tsv'
 vgg19_embeddings_path = 'dataset/id_vgg19_mmsr.tsv'
 tfidf_embeddings_path = 'dataset/id_lyrics_tf-idf_mmsr.tsv'
 tags_dataset_path = 'dataset/id_tags_dict.tsv'
+word2vec_embeddings_path = 'dataset/id_lyrics_word2vec_mmsr.tsv'
 
 bow_path = 'dataset/id_mfcc_bow_mmsr.tsv'
 stats_path = 'dataset/id_mfcc_stats_mmsr.tsv'
 
 dataset = Dataset(info_dataset_path, genres_dataset_path, url_dataset_path,
                   metadata_dataset_path, bert_embeddings_path, resnet_embeddings_path,
-                  vgg19_embeddings_path, bow_path, stats_path)
+                  vgg19_embeddings_path, bow_path, stats_path, word2vec_embeddings_path)
 
 diversity_optimizer = SongDiversityOptimizer(tags_dataset_path)
 
@@ -43,8 +46,13 @@ vgg19_retrieval_system = EmbeddingRetrievalSystem(dataset, dataset.vgg19_embeddi
 baseline_retrieval_system = BaselineRetrievalSystem(dataset)
 mfcc_retrieval_system = MFCCRetrievalSystem(dataset)
 tfidf_retrieval_system = TFIDFRetrievalSystem(dataset, tfidf_embeddings_path)
-lambdamart_model = 'dataset/lambdamart_model.pth'
-lambdamart_retrieval_system = LambdaMARTRetrievalSystem(dataset, lambdamart_model, dataset.lambdamart_feature_dim)
+lambdarank_model = 'dataset/lambdarank_model.pth'
+lambdarank_retrieval_system = LambdaRankRetrievalSystem(dataset, lambdarank_model, dataset.lambdarank_feature_dim)
+early_fusion_retrieval_system = EarlyFusionRetrievalSystem(dataset, dataset.bert_embeddings, dataset.resnet_embeddings,
+                                                           dataset.mfcc_embeddings_stat, 'dataset/svm_model.pkl')
+late_fusion_retrieval_system = LateFusionRetrievalSystem(dataset, dataset.bert_embeddings, dataset.resnet_embeddings,
+                                                         dataset.mfcc_embeddings_stat, 'dataset/late_fusion_model.pkl')
+
 
 @app.route('/calculate_metrics', methods=['POST'])
 def calculate_metrics():
@@ -197,7 +205,25 @@ def retrieve_lamdba_mart():
     if not query_song:
         return jsonify({"error": "Query song not found"}), 404
 
-    return retrieve_songs(query_song, n, diversity_optimization, model='LambdaMART')
+    return retrieve_songs(query_song, n, diversity_optimization, model='LambdaRank')
+
+@app.route('/retrieve/early-fusion', methods=['POST'])
+def retrieve_early_fusion():
+    query_song, n = get_query_data(request.get_json(), dataset)
+
+    if not query_song:
+        return jsonify({"error": "Query song not found"}), 404
+
+    return retrieve_songs(query_song, n, model='EarlyFusion')
+
+@app.route('/retrieve/late-fusion', methods=['POST'])
+def retrieve_late_fusion():
+    query_song, n = get_query_data(request.get_json(), dataset)
+
+    if not query_song:
+        return jsonify({"error": "Query song not found"}), 404
+
+    return retrieve_songs(query_song, n, model='LateFusion')
 
 def retrieve_songs(query_song: Song, n: number, diversity_optimization: bool, model: str):
     if diversity_optimization:
@@ -248,10 +274,16 @@ def retrieve_songs(query_song: Song, n: number, diversity_optimization: bool, mo
             retrieved_songs = resnet_retrieval_system.get_retrieval(query_song, adapted_n)
         case 'VGG19':
             print('vgg19')
-            retrieved_songs = vgg19_retrieval_system.get_retrieval(query_song, adapted_n)
-        case 'LambdaMART':
-            print('lambdamart')
-            retrieved_songs = lambdamart_retrieval_system.get_retrieval(query_song, adapted_n)
+            retrieved_songs = vgg19_retrieval_system.get_retrieval(query_song, n)
+        case 'LambdaRank':
+            print('lambdarank')
+            retrieved_songs = lambdarank_retrieval_system.get_retrieval(query_song, n)
+        case 'EarlyFusion':
+            print('earlyfusion')
+            retrieved_songs = early_fusion_retrieval_system.get_retrieval(query_song, n)
+        case 'LateFusion':
+            print('latefusion')
+            retrieved_songs = late_fusion_retrieval_system.get_retrieval(query_song, n)
         case _:
             print('default')
             retrieved_songs = bert_retrieval_system.get_retrieval(query_song, adapted_n)

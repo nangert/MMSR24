@@ -1,12 +1,12 @@
-# lambdamart_system.py
+# lambdarank_system.py
 import pickle
 from typing import List
 from Music4All import Dataset, Song
 
 
-class LambdaMARTRetrievalSystem:
+class LambdaRankRetrievalSystem:
     """
-    Retrieves songs using a pre-trained LightGBM-based LambdaMART model
+    Retrieves songs using a pre-trained LightGBM-based LambdaRank model
     that was trained on track-level MFCC BoW features from 'id_mfcc_bow.tsv.bz2'.
     """
 

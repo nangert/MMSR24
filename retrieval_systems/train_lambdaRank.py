@@ -1,3 +1,4 @@
+# train_lambdaRank.py
 import os
 import csv
 import bz2
@@ -13,14 +14,12 @@ import lightgbm as lgb
 import pickle
 
 """
-Trains a LambdaMART (LambdaMERT) learning to rank model using LightGBM.
+Trains a LambdaRank learning to rank model using LightGBM.
 Loads user-track interactions, track features, merges them, and trains a model
 with LightGBM's ranker objective. After training, saves the model as a .pth file.
 """
 
-###############################################################################
 # Data loading
-###############################################################################
 def load_large_track_ids(meta_path: str) -> set:
     """
     Reads track metadata (the large file) and returns a set of valid track IDs.
@@ -81,9 +80,7 @@ def load_track_features(features_path: str, large_ids: set, exclude_ids: set) ->
     return feature_dict
 
 
-###############################################################################
 # Data preprocessing
-###############################################################################
 def stratified_subsample(df_counts: pd.DataFrame, sample_fraction: float = 0.1) -> pd.DataFrame:
     """
     Subsamples user-track interactions at the given fraction.
@@ -118,7 +115,6 @@ def build_ltr_dataframe(df_counts: pd.DataFrame, feat_dict: dict, chunk_size: in
             merged_row = [user_id, track_id] + feats.tolist() + [label]
             rows.append(merged_row)
 
-    # Determine feature count from first row
     if not rows:
         raise ValueError("No training rows found after merging. Check your data paths.")
 
@@ -128,20 +124,150 @@ def build_ltr_dataframe(df_counts: pd.DataFrame, feat_dict: dict, chunk_size: in
     return df_merged
 
 
-def find_longest_slate(df_merged: pd.DataFrame) -> int:
+# Ensure all tracks remain (at least 1% of their occurrences)
+def sample_one_percent_with_min5_coverage(
+        df_counts: pd.DataFrame,
+        global_fraction: float = 0.01,  # 1% overall
+        coverage_count: int = 5,
+        random_seed: int = 100
+) -> pd.DataFrame:
     """
-    Identifies the largest group size (number of items per user).
-    Used to understand query grouping or potential padding (if needed).
+    1) Randomly sample 1% of the entire DataFrame.
+    2) For each track, ensure it has at least 5 rows in the sample.
+    3) For each user, ensure it has at least 5 rows in the sample.
+    4) If final set exceeds 1%, try to reduce it down from non-coverage rows.
+       Coverage rows are mandatory, so if coverage alone exceeds 1%, final size > 1%.
+
+    This version sorts the original dataframe once for tracks and once for users,
+    making coverage steps faster than repeated groupby calls.
     """
-    slate_lengths = df_merged.groupby("user_id").size()
-    longest_slate = slate_lengths.max()
-    return int(longest_slate)
+    total_rows = len(df_counts)
+    desired_rows = max(int(round(total_rows * global_fraction)), 1)
+
+    df_sampled = df_counts.sample(frac=global_fraction, random_state=random_seed)
+
+    # Track which coverage rows we must keep, so we can avoid dropping them
+    coverage_mandatory_keys = set()  # (user_id, track_id, count) to keep
+
+    # Ensure each track appears at least 5 times in the sample
+    track_counts_in_sample = df_sampled.groupby("track_id").size()
+    needed_by_track = {}
+    all_tracks = df_counts["track_id"].unique()
+    for trk in all_tracks:
+        have = track_counts_in_sample.get(trk, 0)
+        if have < coverage_count:
+            needed_by_track[trk] = coverage_count - have
+
+    if needed_by_track:
+        # Pre-sort df_counts once by "count" descending
+        df_sorted_by_track = df_counts.sort_values(["track_id", "count"],
+                                                   ascending=[True, False])
+
+        # Single pass groupby to fetch needed coverage rows
+        def take_track_coverage(group):
+            trk_id = group.name
+            needed = needed_by_track.get(trk_id, 0)
+            if needed <= 0:
+                return pd.DataFrame(columns=group.columns)
+            # pick top 'needed' rows from the already descending-sorted group
+            return group.iloc[:needed]
+
+        coverage_for_tracks = (
+            df_sorted_by_track
+            .groupby("track_id", group_keys=False)
+            .apply(take_track_coverage))
+
+        # Mark coverage keys
+        for row in coverage_for_tracks[["user_id", "track_id", "count"]].itertuples(index=False):
+            coverage_mandatory_keys.add((row.user_id, row.track_id, row.count))
+
+        # Merge coverage rows in a single step
+        df_sampled = pd.concat([df_sampled, coverage_for_tracks], ignore_index=True)
+        df_sampled.drop_duplicates(subset=["user_id", "track_id", "count"], inplace=True)
+
+    # Ensure each user appears at least 5 times in the sample
+    user_counts_in_sample = df_sampled.groupby("user_id").size()
+    needed_by_user = {}
+    all_users = df_counts["user_id"].unique()
+    for usr in all_users:
+        have = user_counts_in_sample.get(usr, 0)
+        if have < coverage_count:
+            needed_by_user[usr] = coverage_count - have
+
+    if needed_by_user:
+        # Pre-sort df_counts by "count" descending, grouping by user
+        df_sorted_by_user = df_counts.sort_values(["user_id", "count"],
+                                                  ascending=[True, False])
+
+        def take_user_coverage(group):
+            usr_id = group.name
+            needed = needed_by_user.get(usr_id, 0)
+            if needed <= 0:
+                return pd.DataFrame(columns=group.columns)
+            return group.iloc[:needed]
+
+        coverage_for_users = (
+            df_sorted_by_user
+            .groupby("user_id", group_keys=False)
+            .apply(take_user_coverage))
+
+        # Mark coverage keys
+        for row in coverage_for_users[["user_id", "track_id", "count"]].itertuples(index=False):
+            coverage_mandatory_keys.add((row.user_id, row.track_id, row.count))
+
+        df_sampled = pd.concat([df_sampled, coverage_for_users], ignore_index=True)
+        df_sampled.drop_duplicates(subset=["user_id", "track_id", "count"], inplace=True)
+
+    # If final set exceeds x%, reduce from non-coverage rows
+    final_count = len(df_sampled)
+    if final_count > desired_rows:
+        # Mark coverage rows
+        df_sampled["is_coverage"] = df_sampled.apply(
+            lambda row: (row["user_id"], row["track_id"], row["count"]) in coverage_mandatory_keys,
+            axis=1)
+
+        # Keep coverage rows aside
+        df_coverage = df_sampled[df_sampled["is_coverage"] == True]
+        df_non_coverage = df_sampled[df_sampled["is_coverage"] == False]
+
+        # Calculate how many non-coverage rows we can keep
+        slots_for_non_coverage = desired_rows - len(df_coverage)
+        if slots_for_non_coverage < 0:
+            # Coverage alone exceeds x% -> Keep coverage as is
+            df_sampled = df_coverage.copy()
+        else:
+            # Randomly keep slots_for_non_coverage from the non-coverage
+            df_non_cov_sampled = df_non_coverage.sample(
+                n=slots_for_non_coverage,
+                random_state=random_seed
+            )
+            df_sampled = pd.concat([df_coverage, df_non_cov_sampled], ignore_index=True)
+
+        # Drop our helper column
+        if "is_coverage" in df_sampled.columns:
+            df_sampled.drop(columns=["is_coverage"], inplace=True)
+
+    # Final stats
+    final_fraction = len(df_sampled) / total_rows
+    print(f"Original rows: {total_rows}")
+    print(f"Desired 1% of rows: {desired_rows}")
+    print(f"Final rows: {len(df_sampled)} (~{final_fraction:.4%} of original)")
+
+    # Quick checks:
+    # Every track >= 5?
+    track_counts_after = df_sampled.groupby("track_id").size()
+    min_track_count = track_counts_after.min() if len(track_counts_after) > 0 else 0
+    print(f"Min track count after coverage: {min_track_count}")
+
+    # Every user >= 5?
+    user_counts_after = df_sampled.groupby("user_id").size()
+    min_user_count = user_counts_after.min() if len(user_counts_after) > 0 else 0
+    print(f"Min user count after coverage: {min_user_count}")
+
+    return df_sampled
 
 
-###############################################################################
-# Train with LightGBM's LambdaRank
-###############################################################################
-def train_lambdamart(
+def train_lambdarank(
     df_train: pd.DataFrame,
     df_val: pd.DataFrame,
     feature_cols: list,
@@ -150,7 +276,7 @@ def train_lambdamart(
     num_boost_round: int = 1000
 ):
     """
-    Trains a LambdaMART (LambdaRank) model using LightGBM with ranking objective.
+    Trains a LambdaRank model using LightGBM with ranking objective.
 
     df_train, df_val: training and validation sets
     feature_cols: columns with numeric features
@@ -186,8 +312,8 @@ def train_lambdamart(
         "objective": "lambdarank",
         "metric": ["ndcg", "map"],  # Specify metrics to evaluate
         "eval_at": [5, 10],
-        "learning_rate": 0.05,
-        "num_leaves": 31,
+        "learning_rate": 0.0005,
+        "num_leaves": 103,
         "min_data_in_leaf": 20,
         "verbosity": 1,
         "label_gain": label_gain
@@ -204,9 +330,6 @@ def train_lambdamart(
     return model
 
 
-###############################################################################
-# Main script to run everything
-###############################################################################
 def main():
     # Adapt these to your local structure
     train_counts_path = "dataset/train/userid_trackid_count.tsv.bz2"
@@ -232,10 +355,8 @@ def main():
 
     # Subsample to reduce dataset size
     print("\nSubsampling user-track interactions...")
-    sample_fraction = 0.01
-    original_count = len(df_counts)
-    df_counts = stratified_subsample(df_counts, sample_fraction)
-    print(f"Subsampled from {original_count} to {len(df_counts)} interactions.")
+    df_counts = sample_one_percent_with_min5_coverage(df_counts, global_fraction=0.05, coverage_count=5, random_seed=100)
+    print(f"Dataset now has {len(df_counts)} rows after ensuring minimum track inclusion.")
 
     # Build a DataFrame merging interactions & features
     print("\nBuilding LTR DataFrame...")
@@ -279,11 +400,11 @@ def main():
 
     # Train the LambdaRank model
     print("\nraining the LambdaRank model...")
-    model = train_lambdamart(df_train, df_val, feature_cols, label_col, user_col)
+    model = train_lambdarank(df_train, df_val, feature_cols, label_col, user_col)
     print("LambdaRank model training complete.")
 
     print("\nSaving the trained model...")
-    model_path = "lambdamart_model.pth"
+    model_path = "lambdarank_model.pth"
     with open(model_path, "wb") as f:
         pickle.dump(model, f)
     print(f"Model saved to {model_path}.")
