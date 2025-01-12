@@ -1,3 +1,6 @@
+from sklearnex import patch_sklearn
+patch_sklearn()  # Patches scikit-learn to use Intel oneAPI for acceleration
+
 import contextlib
 import os
 import pickle
@@ -249,7 +252,7 @@ def train_late_fusion_calibrated(df: pd.DataFrame, output_file: str = "late_fusi
 
         # Train Final Fusion Classifier
         print("--- Training final SVM on fused probabilities ---")
-        fusion_svm = svm.SVC(kernel="linear", probability=False, random_state=100)
+        fusion_svm = svm.SVC(kernel="linear", probability=True, random_state=100)
         fusion_svm.fit(X_train_fusion, y_train_fusion)
         print("Done.\n")
 

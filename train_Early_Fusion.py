@@ -1,3 +1,6 @@
+from sklearnex import patch_sklearn
+patch_sklearn()  # Patches scikit-learn to use Intel oneAPI for acceleration
+
 import contextlib
 import os
 import pickle
