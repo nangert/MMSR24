@@ -71,6 +71,8 @@ diversity_optimizer = SongDiversityOptimizer('dataset/id_tags_dict.tsv')
 NUM_REQUESTS = 10  # Number of queries to evaluate
 TOP_K = 10          # Top-K results
 retrieval_systems = {
+    "Early Fusion": early_fusion_system,
+    "Late Fusion": late_fusion_system,
     "Baseline": baseline_system,
     "BERT": bert_system,
     "ResNet": resnet_system,
