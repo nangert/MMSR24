@@ -5,16 +5,17 @@ import numpy as np
 def analyze_results(input_csv: str, output_csv: str):
     """
     1) Reads the CSV file containing system/query metrics.
-    2) Groups by 'system' to get one row per system (averaging over queries).
-       Excludes non-numeric columns (like query_id).
-    3) Saves the grouped results as a new CSV file.
-    4) Creates a plot comparing ndcg_at_k and diversity for normal systems vs. _div systems.
+    2) Parses the system name -> (system_base, approach).
+    3) Groups by (system_base, approach) to get average metrics over queries.
+    4) Saves the grouped results as a new CSV file.
+    5) Creates side-by-side bar plots (NDCG & Diversity).
+    6) Creates a scatterplot with NDCG on x-axis and Diversity on y-axis.
     """
 
     # 1) Load the CSV
     df = pd.read_csv(input_csv)
 
-    # List of metric columns you want to average
+    # List of metric columns to average
     metric_cols = [
         "precision_at_k",
         "recall_at_k",
@@ -23,98 +24,137 @@ def analyze_results(input_csv: str, output_csv: str):
         "diversity",
         "novelty",
         "coverage",
-        "serendipity"
+        "serendipity",
     ]
 
-    # 2) Group by 'system' and average only the metric columns
-    #    This will drop columns like 'query_id' automatically.
+    # -- Function to parse system names (to handle normal, div_greedy, etc.) --
+    def parse_system_name(sys_name: str):
+        if sys_name.endswith("_div_greedy"):
+            return sys_name.replace("_div_greedy", ""), "div_greedy"
+        elif sys_name.endswith("_div_semi"):
+            return sys_name.replace("_div_semi", ""), "div_semi"
+        elif sys_name.endswith("_div_cluster"):
+            return sys_name.replace("_div_cluster", ""), "div_cluster"
+        else:
+            return sys_name, "normal"
+
+    # Create two new columns in df
+    df["system_base"], df["approach"] = zip(*df["system"].apply(parse_system_name))
+
+    # 2) Group by (system_base, approach) and average numeric metrics
     df_grouped = (
-        df.groupby("system", as_index=False)[metric_cols]
-          .mean()  # numeric columns only
+        df.groupby(["system_base", "approach"], as_index=False)[metric_cols]
+          .mean()
     )
 
     # 3) Save results
     df_grouped.to_csv(output_csv, index=False)
     print(f"Grouped results saved to {output_csv}")
 
-    # ------------------------------------------------
-    # 4) Plot ndcg_at_k & diversity: normal vs. _div
-    # ------------------------------------------------
+    # -----------------------------------------
+    # 4) Side-by-side bar chart for reference
+    # (your existing code to plot bars for NDCG & Diversity, if desired)
+    # -----------------------------------------
+    def side_by_side_plot(df_input, value_col, title_str, ylabel_str, savefig_name):
+        df_pivot = df_input.pivot(index="system_base", columns="approach", values=value_col).fillna(0)
+        df_pivot.sort_index(inplace=True)
 
-    # Separate normal vs. _div systems
-    df_normal = df_grouped[~df_grouped["system"].str.endswith("_div")].copy()
-    df_div = df_grouped[df_grouped["system"].str.endswith("_div")].copy()
+        approach_order = ["normal", "div_greedy", "div_semi", "div_cluster"]
+        approach_order = [a for a in approach_order if a in df_pivot.columns]
 
-    # Create a "system_base" column
-    df_div["system_base"] = df_div["system"].str.replace("_div", "", regex=False)
-    df_normal["system_base"] = df_normal["system"]
+        system_bases = df_pivot.index.tolist()
+        x = np.arange(len(system_bases))
+        width = 0.2
 
-    # Merge on that base system name, so we can pair normal vs. div
-    df_compare = pd.merge(
-        df_normal[["system_base", "ndcg_at_k", "diversity"]],
-        df_div[["system_base", "ndcg_at_k", "diversity"]],
-        on="system_base",
-        suffixes=("_normal", "_div")
+        fig, ax = plt.subplots(figsize=(10, 6))
+        for i, approach in enumerate(approach_order):
+            offset = (i - (len(approach_order)-1)/2) * width
+            values = df_pivot[approach].values
+            rects = ax.bar(x + offset, values, width, label=approach)
+            for rect in rects:
+                height = rect.get_height()
+                ax.annotate(f"{height:.3f}",
+                            xy=(rect.get_x() + rect.get_width()/2, height),
+                            xytext=(0, 3),
+                            textcoords="offset points",
+                            ha="center", va="bottom", fontsize=8)
+
+        ax.set_title(title_str)
+        ax.set_ylabel(ylabel_str)
+        ax.set_xticks(x)
+        ax.set_xticklabels(system_bases, rotation=45, ha="right")
+        ax.legend()
+        plt.tight_layout()
+        plt.savefig(savefig_name)
+        plt.show()
+
+    # Example usage
+    side_by_side_plot(
+        df_input=df_grouped[["system_base", "approach", "ndcg_at_k"]],
+        value_col="ndcg_at_k",
+        title_str="NDCG by System & Approach",
+        ylabel_str="NDCG",
+        savefig_name="ndcg_comparison.png"
     )
 
-    # Sort by system_base alphabetically (optional)
-    df_compare.sort_values(by="system_base", inplace=True)
+    side_by_side_plot(
+        df_input=df_grouped[["system_base", "approach", "diversity"]],
+        value_col="diversity",
+        title_str="Diversity by System & Approach",
+        ylabel_str="Diversity",
+        savefig_name="diversity_comparison.png"
+    )
 
-    # Now we have columns:
-    # [system_base, ndcg_at_k_normal, diversity_normal, ndcg_at_k_div, diversity_div]
+    # -----------------------------------------
+    # 5) Scatterplot: NDCG vs. Diversity
+    # -----------------------------------------
+    # We'll do one point per row in df_grouped.
+    # If you want different colors for each approach, we can define a color map:
+    color_map = {
+        "normal": "blue",
+        "div_greedy": "red",
+        "div_semi": "green",
+        "div_cluster": "purple",
+    }
 
-    # Plot side-by-side bar chart for NDCG and diversity
-    x = np.arange(len(df_compare))  # the label locations
-    width = 0.35  # the width of the bars
+    plt.figure(figsize=(8, 6))
+    for i, row in df_grouped.iterrows():
+        x_val = row["ndcg_at_k"]
+        y_val = row["diversity"]
+        approach = row["approach"]
+        system_base = row["system_base"]
 
-    fig, ax = plt.subplots(1, 2, figsize=(12, 5), sharey=False)
+        # pick color
+        c = color_map.get(approach, "black")
 
-    # --- Left subplot: NDCG ---
-    rects1 = ax[0].bar(x - width/2, df_compare["ndcg_at_k_normal"], width, label="Normal")
-    rects2 = ax[0].bar(x + width/2, df_compare["ndcg_at_k_div"], width, label="Diversity")
+        # plot a single point
+        plt.scatter(x_val, y_val, color=c, s=50, alpha=0.7)
 
-    ax[0].set_ylabel("NDCG")
-    ax[0].set_title("NDCG by System (Normal vs. Div)")
-    ax[0].set_xticks(x)
-    ax[0].set_xticklabels(df_compare["system_base"], rotation=45, ha="right")
-    ax[0].legend()
+        # optional: label the point
+        label_str = f"{system_base}-{approach}"
+        plt.annotate(label_str, (x_val, y_val+0.001),
+                     fontsize=8, ha="center")
 
-    # Annotate bars for NDCG
-    for rect in rects1 + rects2:
-        height = rect.get_height()
-        ax[0].annotate(f'{height:.3f}',
-                       xy=(rect.get_x() + rect.get_width() / 2, height),
-                       xytext=(0, 3),
-                       textcoords="offset points",
-                       ha='center', va='bottom', fontsize=8)
+    plt.xlabel("NDCG")
+    plt.ylabel("Diversity")
+    plt.title("Scatterplot of NDCG vs Diversity @10")
 
-    # --- Right subplot: Diversity ---
-    rects3 = ax[1].bar(x - width/2, df_compare["diversity_normal"], width, label="Normal")
-    rects4 = ax[1].bar(x + width/2, df_compare["diversity_div"], width, label="Diversity")
-
-    ax[1].set_ylabel("Diversity")
-    ax[1].set_title("Diversity by System (Normal vs. Div)")
-    ax[1].set_xticks(x)
-    ax[1].set_xticklabels(df_compare["system_base"], rotation=45, ha="right")
-    ax[1].legend()
-
-    # Annotate bars for diversity
-    for rect in rects3 + rects4:
-        height = rect.get_height()
-        ax[1].annotate(f'{height:.3f}',
-                       xy=(rect.get_x() + rect.get_width() / 2, height),
-                       xytext=(0, 3),
-                       textcoords="offset points",
-                       ha='center', va='bottom', fontsize=8)
+    # optionally add a legend for the approach colors
+    handles = []
+    for a, color in color_map.items():
+        handles.append(plt.Line2D([0], [0], marker='o', color='w', label=a,
+                      markerfacecolor=color, markersize=8))
+    plt.legend(handles=handles, title="Approach")
 
     plt.tight_layout()
-    plt.savefig("ndcg_diversity_comparison.png")
+    plt.savefig("results/test1/ndcg_vs_diversity_scatter.png")
     plt.show()
 
+
 # ------------------------------------------------------------------------------
-# Example usage if you run this script directly
+# Example usage if run directly
 # ------------------------------------------------------------------------------
 if __name__ == "__main__":
-    input_csv_path = "results/evaluation_results.csv"     # your existing CSV file
-    output_csv_path = "results/analysis_results.csv"      # new grouped file
+    input_csv_path = "results/test1/evaluation_results.csv"      # your CSV file
+    output_csv_path = "results/test1/analysis_results.csv"       # aggregated output
     analyze_results(input_csv_path, output_csv_path)

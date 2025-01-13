@@ -1,7 +1,8 @@
 ﻿import json
 import pandas as pd
 from typing import List
-from collections import defaultdict
+import numpy as np
+from sklearn.cluster import KMeans
 
 class SongDiversityOptimizer:
     def __init__(self, filepath):
@@ -10,6 +11,11 @@ class SongDiversityOptimizer:
         :param filepath: Path to the dataset file (e.g., ./dataset/id_tags_dict.tsv)
         """
         self.song_tags = self.load_tags(filepath)
+
+        self.all_tags = set()
+        for tags_dict in self.song_tags.values():
+            self.all_tags.update(tags_dict.keys())
+        self.all_tags = sorted(list(self.all_tags))
 
     def load_tags(self, filepath: str) -> dict:
         """
@@ -118,5 +124,111 @@ class SongDiversityOptimizer:
             # Move the best candidate from the pool into chosen set
             chosen.append(best_song)
             candidates.remove(best_song)
+
+        return chosen
+
+    def semi_greedy_optimize_diversity(self, retrieved_songs: List, n: int) -> List:
+        """
+        From the ordered list 'retrieved_songs' of length adapted_n,
+        pick 'n' songs by alternating:
+          - one pick from the top of the ordered list
+          - one greedy pick that maximizes diversity
+        """
+        # If retrieved_songs is shorter or equal to n, just return all
+        if n >= len(retrieved_songs):
+            return retrieved_songs
+
+        # We'll treat `retrieved_songs` as a queue we pop from the front
+        # for the "top item" picks, but for the "greedy" picks, we need to
+        # search among the remaining items.
+        candidates = list(retrieved_songs)  # ensure it's mutable
+        chosen = []
+
+        while len(chosen) < n and candidates:
+            # Step 1: Pick from the top of the ordered list
+            # (i.e., pop the first element in the candidate list)
+            top_song = candidates.pop(0)
+            chosen.append(top_song)
+            if len(chosen) == n:
+                break
+
+            # Step 2: If there's space left, do a greedy diversity pick
+            if candidates and len(chosen) < n:
+                best_song = None
+                best_increase = -1.0
+                current_diversity = self.calculate_diversity_score(chosen)
+
+                for song in candidates:
+                    new_diversity = self.calculate_diversity_score(chosen + [song])
+                    increase = new_diversity - current_diversity
+                    if increase > best_increase:
+                        best_increase = increase
+                        best_song = song
+
+                if best_song:
+                    chosen.append(best_song)
+                    candidates.remove(best_song)
+
+        return chosen
+
+    def get_song_tag_vector(self, song) -> np.ndarray:
+        """
+        Convert a song's tags into a vector in the global tag space.
+        If a song has no tags or missing tags, those dimensions remain 0.
+        """
+        vector = np.zeros(len(self.all_tags))
+        if song.song_id in self.song_tags:
+            tag_dict = self.song_tags[song.song_id]
+            for i, tag_name in enumerate(self.all_tags):
+                if tag_name in tag_dict:
+                    vector[i] = tag_dict[tag_name]
+        return vector
+
+    def cluster_optimize_diversity_tags(self, retrieved_songs: List, n: int) -> List:
+        """
+        1) Takes a list of candidate songs (already retrieved by relevance).
+        2) Clusters them into n clusters based on their tag vectors.
+        3) Returns exactly n songs (one from each cluster).
+        """
+        if n >= len(retrieved_songs):
+            return retrieved_songs
+
+        # Build a matrix X for k-means
+        X = []
+        for s in retrieved_songs:
+            X.append(self.get_song_tag_vector(s))
+        X = np.array(X)
+
+        n_clusters = min(n, len(retrieved_songs))
+        kmeans = KMeans(n_clusters=n_clusters, n_init=10, random_state=42)
+        kmeans.fit(X)
+        labels = kmeans.labels_
+
+        # Group
+        clusters = {i: [] for i in range(n_clusters)}
+        for idx, label in enumerate(labels):
+            clusters[label].append(retrieved_songs[idx])
+
+        chosen = []
+        # Because retrieved_songs are presumably sorted by relevance,
+        # we pick the earliest item in each cluster as "best" from that cluster.
+        # Alternatively, if you had a 'relevance_score', you'd pick max.
+        for cluster_idx in range(n_clusters):
+            songs_in_cluster = clusters[cluster_idx]
+            if songs_in_cluster:
+                # pick the earliest in the original list
+                best_song = None
+                best_index = float('inf')
+                for s in songs_in_cluster:
+                    idx_in_original = retrieved_songs.index(s)
+                    if idx_in_original < best_index:
+                        best_song = s
+                        best_index = idx_in_original
+                chosen.append(best_song)
+
+        # If for some reason we have fewer than n (empty cluster?), fill up
+        if len(chosen) < n:
+            leftover = [s for s in retrieved_songs if s not in chosen]
+            chosen += leftover[: n - len(chosen)]
 
         return chosen

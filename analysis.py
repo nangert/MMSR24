@@ -1,7 +1,8 @@
 import os
 import random
 import pandas as pd
-import matplotlib.pyplot as plt
+
+from plot_results import make_plots
 from retrieval_systems.baseline_system import BaselineRetrievalSystem
 from retrieval_systems.embedding_system import EmbeddingRetrievalSystem
 from retrieval_systems.mfcc_retrieval import MFCCRetrievalSystem
@@ -9,12 +10,20 @@ from retrieval_systems.lambdarank_system import LambdaRankRetrievalSystem
 from retrieval_systems.tfidf_retrieval import TFIDFRetrievalSystem
 from retrieval_systems.early_fusion import EarlyFusionRetrievalSystem
 from retrieval_systems.late_fusion import LateFusionRetrievalSystem
-from Music4All import Dataset, Song
+
+from Music4All import Dataset
 from metrics.accuracy_metrics import Metrics
 from metrics.beyond_accuracy_metrics import BeyondAccuracyMetrics
+
+# Import our updated SongDiversityOptimizer with semi & cluster methods
 from diversity.song_diversity_optimizer import SongDiversityOptimizer
 
-# Load the dataset
+# -------------------------------------------------------------------
+# TOGGLE THIS FLAG TO ENABLE / DISABLE DIVERSITY OPTIMIZATION
+# -------------------------------------------------------------------
+USE_DIVERSITY_OPTIMIZATION = False
+
+# 1) Load the dataset
 dataset = Dataset(
     'dataset/id_information_mmsr.tsv',
     'dataset/id_genres_mmsr.tsv',
@@ -28,55 +37,63 @@ dataset = Dataset(
     'dataset/id_lyrics_word2vec_mmsr.tsv'
 )
 
-# Initialize retrieval systems
+# 2) Initialize retrieval systems
 baseline_system = BaselineRetrievalSystem(dataset)
 bert_system = EmbeddingRetrievalSystem(dataset, dataset.bert_embeddings, "BERT")
 resnet_system = EmbeddingRetrievalSystem(dataset, dataset.resnet_embeddings, "ResNet")
 vgg19_system = EmbeddingRetrievalSystem(dataset, dataset.vgg19_embeddings, "VGG19")
 mfcc_system = MFCCRetrievalSystem(dataset)
 tfidf_system = TFIDFRetrievalSystem(dataset, 'dataset/id_lyrics_tf-idf_mmsr.tsv')
-lambdarank_system = LambdaRankRetrievalSystem(dataset, 'models/lambdarank_model.pth', dataset.lambdarank_feature_dim)
-early_fusion_system = EarlyFusionRetrievalSystem(dataset, dataset.word2vec_embeddings, dataset.resnet_embeddings, dataset.mfcc_embeddings_stat, 'models/early_fusion_model.pkl')
-late_fusion_system = LateFusionRetrievalSystem(dataset, dataset.word2vec_embeddings, dataset.resnet_embeddings, dataset.mfcc_embeddings_stat, 'models/late_fusion_model.pkl')
+lambdarank_system = LambdaRankRetrievalSystem(
+    dataset,
+    'models/lambdarank_model.pth',
+    dataset.lambdarank_feature_dim
+)
+early_fusion_system = EarlyFusionRetrievalSystem(
+    dataset,
+    dataset.word2vec_embeddings,
+    dataset.resnet_embeddings,
+    dataset.mfcc_embeddings_stat,
+    'models/early_fusion_model.pkl'
+)
+late_fusion_system = LateFusionRetrievalSystem(
+    dataset,
+    dataset.word2vec_embeddings,
+    dataset.resnet_embeddings,
+    dataset.mfcc_embeddings_stat,
+    'models/late_fusion_model.pkl'
+)
 
 metrics_instance = Metrics()
 diversity_optimizer = SongDiversityOptimizer('dataset/id_tags_dict.tsv')
 
-# Configuration
+# 3) Config
 NUM_REQUESTS = 10  # Number of queries to evaluate
-TOP_K = 10  # Top-K results to evaluate
+TOP_K = 10          # Top-K results
 retrieval_systems = {
     "Baseline": baseline_system,
     "BERT": bert_system,
     "ResNet": resnet_system,
     "VGG19": vgg19_system,
-    "MFCC stat cos": mfcc_system,
-    "MFCC bow cos": mfcc_system,
-    "MFCC stat": mfcc_system,
     "MFCC bow": mfcc_system,
     "TFIDF": tfidf_system,
     "LambdaRank": lambdarank_system,
 }
-
 results = []
 
-
-# Determine our set of query songs ONE TIME for all runs.
+# 4) One-time sample of queries
 random.seed(100)
 all_songs = dataset.get_all_songs()
 query_songs = random.sample(all_songs, NUM_REQUESTS)
 
-
-# For each system, run retrieval *twice*:
-#    - no diversity (original)
-#    - with diversity (retrieve 5*K, then optimize)
+# 5) Evaluate each system. If USE_DIVERSITY_OPTIMIZATION=True, do all 4 approaches.
 for system_name, system in retrieval_systems.items():
     print(f"\n========================================")
     print(f"Evaluating system: {system_name}")
     print(f"========================================\n")
 
     for query_song in query_songs:
-        # Retrieve top-K *without* diversity
+        # (A) Always do the original retrieval (K)
         if system_name == "MFCC stat cos":
             retrieved_songs_original = system.recommend_similar_songs_stat_cos(query_song, TOP_K)
         elif system_name == "MFCC bow cos":
@@ -90,142 +107,136 @@ for system_name, system in retrieval_systems.items():
         else:
             retrieved_songs_original = system.get_retrieval(query_song, TOP_K)
 
-        # Retrieve top-5*K for diversity, then reduce to K
-        adapted_k = TOP_K * 5
-        if system_name == "MFCC stat cos":
-            retrieved_songs_div = system.recommend_similar_songs_stat_cos(query_song, adapted_k)
-        elif system_name == "MFCC bow cos":
-            retrieved_songs_div = system.recommend_similar_songs_bow_cos(query_song, adapted_k)
-        elif system_name == "MFCC stat":
-            retrieved_songs_div = system.recommend_similar_songs_stat(query_song, adapted_k)
-        elif system_name == "MFCC bow":
-            retrieved_songs_div = system.recommend_similar_songs_bow(query_song, adapted_k)
-        elif system_name == "TFIDF":
-            retrieved_songs_div = system.retrieve(query_song.song_id, adapted_k)
-        else:
-            retrieved_songs_div = system.get_retrieval(query_song, adapted_k)
-
-        # Apply diversity optimization
-        retrieved_songs_div = diversity_optimizer.greedy_optimize_diversity(retrieved_songs_div, TOP_K)
-
-        # Compute relevance metrics for both sets of results.
+        # Compute metrics for the original retrieval
         total_relevant = dataset.get_total_relevant(
             query_song.to_dict(),
             dataset.load_genre_weights('dataset/id_tags_dict.tsv', 'dataset/id_genres_mmsr.tsv')
         )
         query_genres = set(query_song.genres)
 
-        # For "original" retrieval
         metrics_original = metrics_instance.calculate_metrics(
             query_song.to_dict(),
-            [song.to_dict() for song in retrieved_songs_original],
+            [s.to_dict() for s in retrieved_songs_original],
             total_relevant,
             query_genres,
-            TOP_K,
+            TOP_K
         )
 
-        # For "diversified" retrieval
-        metrics_div = metrics_instance.calculate_metrics(
-            query_song.to_dict(),
-            [song.to_dict() for song in retrieved_songs_div],
-            total_relevant,
-            query_genres,
-            TOP_K,
-        )
-
-
-        # Compute beyond-accuracy metrics (catalog-level).
-        catalog_popularity = {song.song_id: song.popularity for song in all_songs}
-        catalog_dicts = [s.to_dict() for s in all_songs]
-
-        # Original
-        retrieved_songs_dicts_original = [s.to_dict() for s in retrieved_songs_original]
+        catalog_popularity = {sng.song_id: sng.popularity for sng in all_songs}
+        catalog_dicts = [sng.to_dict() for sng in all_songs]
+        retrieved_dicts_original = [s.to_dict() for s in retrieved_songs_original]
         beyond_original = {
-            "diversity": BeyondAccuracyMetrics.diversity(retrieved_songs_dicts_original),
-            "novelty": BeyondAccuracyMetrics.novelty(retrieved_songs_dicts_original, catalog_popularity),
-            "coverage": BeyondAccuracyMetrics.coverage(retrieved_songs_dicts_original, len(catalog_dicts)),
+            "diversity": BeyondAccuracyMetrics.diversity(retrieved_dicts_original),
+            "novelty": BeyondAccuracyMetrics.novelty(retrieved_dicts_original, catalog_popularity),
+            "coverage": BeyondAccuracyMetrics.coverage(retrieved_dicts_original, len(catalog_dicts)),
             "serendipity": BeyondAccuracyMetrics.serendipity(
-                retrieved_songs_dicts_original,
-                [query_song.to_dict()],
-                catalog_dicts
+                retrieved_dicts_original, [query_song.to_dict()], catalog_dicts
             )
         }
 
-        # Diversified
-        retrieved_songs_dicts_div = [s.to_dict() for s in retrieved_songs_div]
-        beyond_div = {
-            "diversity": BeyondAccuracyMetrics.diversity(retrieved_songs_dicts_div),
-            "novelty": BeyondAccuracyMetrics.novelty(retrieved_songs_dicts_div, catalog_popularity),
-            "coverage": BeyondAccuracyMetrics.coverage(retrieved_songs_dicts_div, len(catalog_dicts)),
-            "serendipity": BeyondAccuracyMetrics.serendipity(
-                retrieved_songs_dicts_div,
-                [query_song.to_dict()],
-                catalog_dicts
-            )
-        }
-
-        # Store two rows in `results`:
-        #    - <SystemName> (original)
-        #    - <SystemName> + "_div" (with diversity)
+        # Add row for "no diversity"
         results.append({
             "system": system_name,
             "query_id": query_song.song_id,
             **metrics_original,
             **beyond_original
         })
-        results.append({
-            "system": system_name + "_div",
-            "query_id": query_song.song_id,
-            **metrics_div,
-            **beyond_div
-        })
 
+        # (B) If we want diversity, retrieve top-(5*K) and apply all 3 methods
+        if USE_DIVERSITY_OPTIMIZATION:
+            adapted_k = TOP_K * 5
+            if system_name == "MFCC stat cos":
+                retrieved_songs_5k = system.recommend_similar_songs_stat_cos(query_song, adapted_k)
+            elif system_name == "MFCC bow cos":
+                retrieved_songs_5k = system.recommend_similar_songs_bow_cos(query_song, adapted_k)
+            elif system_name == "MFCC stat":
+                retrieved_songs_5k = system.recommend_similar_songs_stat(query_song, adapted_k)
+            elif system_name == "MFCC bow":
+                retrieved_songs_5k = system.recommend_similar_songs_bow(query_song, adapted_k)
+            elif system_name == "TFIDF":
+                retrieved_songs_5k = system.retrieve(query_song.song_id, adapted_k)
+            else:
+                retrieved_songs_5k = system.get_retrieval(query_song, adapted_k)
 
-# Results DataFrame
+            # a) Greedy
+            retrieved_div_greedy = diversity_optimizer.greedy_optimize_diversity(retrieved_songs_5k, TOP_K)
+            metrics_div_greedy = metrics_instance.calculate_metrics(
+                query_song.to_dict(),
+                [s.to_dict() for s in retrieved_div_greedy],
+                total_relevant,
+                query_genres,
+                TOP_K
+            )
+            retrieved_dicts_greedy = [s.to_dict() for s in retrieved_div_greedy]
+            beyond_div_greedy = {
+                "diversity": BeyondAccuracyMetrics.diversity(retrieved_dicts_greedy),
+                "novelty": BeyondAccuracyMetrics.novelty(retrieved_dicts_greedy, catalog_popularity),
+                "coverage": BeyondAccuracyMetrics.coverage(retrieved_dicts_greedy, len(catalog_dicts)),
+                "serendipity": BeyondAccuracyMetrics.serendipity(
+                    retrieved_dicts_greedy, [query_song.to_dict()], catalog_dicts
+                )
+            }
+            results.append({
+                "system": system_name + "_div_greedy",
+                "query_id": query_song.song_id,
+                **metrics_div_greedy,
+                **beyond_div_greedy
+            })
+
+            # b) Semi-Greedy
+            retrieved_div_semi = diversity_optimizer.semi_greedy_optimize_diversity(retrieved_songs_5k, TOP_K)
+            metrics_div_semi = metrics_instance.calculate_metrics(
+                query_song.to_dict(),
+                [s.to_dict() for s in retrieved_div_semi],
+                total_relevant,
+                query_genres,
+                TOP_K
+            )
+            retrieved_dicts_semi = [s.to_dict() for s in retrieved_div_semi]
+            beyond_div_semi = {
+                "diversity": BeyondAccuracyMetrics.diversity(retrieved_dicts_semi),
+                "novelty": BeyondAccuracyMetrics.novelty(retrieved_dicts_semi, catalog_popularity),
+                "coverage": BeyondAccuracyMetrics.coverage(retrieved_dicts_semi, len(catalog_dicts)),
+                "serendipity": BeyondAccuracyMetrics.serendipity(
+                    retrieved_dicts_semi, [query_song.to_dict()], catalog_dicts
+                )
+            }
+            results.append({
+                "system": system_name + "_div_semi",
+                "query_id": query_song.song_id,
+                **metrics_div_semi,
+                **beyond_div_semi
+            })
+
+            # c) Cluster
+            retrieved_div_cluster = diversity_optimizer.cluster_optimize_diversity_tags(retrieved_songs_5k, TOP_K)
+            metrics_div_cluster = metrics_instance.calculate_metrics(
+                query_song.to_dict(),
+                [s.to_dict() for s in retrieved_div_cluster],
+                total_relevant,
+                query_genres,
+                TOP_K
+            )
+            retrieved_dicts_cluster = [s.to_dict() for s in retrieved_div_cluster]
+            beyond_div_cluster = {
+                "diversity": BeyondAccuracyMetrics.diversity(retrieved_dicts_cluster),
+                "novelty": BeyondAccuracyMetrics.novelty(retrieved_dicts_cluster, catalog_popularity),
+                "coverage": BeyondAccuracyMetrics.coverage(retrieved_dicts_cluster, len(catalog_dicts)),
+                "serendipity": BeyondAccuracyMetrics.serendipity(
+                    retrieved_dicts_cluster, [query_song.to_dict()], catalog_dicts
+                )
+            }
+            results.append({
+                "system": system_name + "_div_cluster",
+                "query_id": query_song.song_id,
+                **metrics_div_cluster,
+                **beyond_div_cluster
+            })
+
+# 9) Build dataframe & write out
 df_results = pd.DataFrame(results)
-print("\nEvaluation Results are stored in evaluation_results.csv")
-df_results.to_csv(os.path.join('results', 'evaluation_results.csv'), index=False)
+os.makedirs("results/test3", exist_ok=True)
+output_csv = os.path.join("results/test3", "evaluation_results.csv")
+df_results.to_csv(output_csv, index=False)
 
-
-# Visualization of Accuracy Metrics (original + _div)
-def annotate_bars(ax):
-    for bar in ax.patches:
-        value = bar.get_height()
-        ax.text(
-            bar.get_x() + bar.get_width() / 2,
-            value,
-            f"{value:.3f}",
-            ha="center",
-            va="bottom",
-            fontsize=10,
-            color="black"
-        )
-
-
-# Visualization of Accuracy Metrics
-for metric in ["precision_at_k", "recall_at_k", "ndcg_at_k", "mrr"]:
-    plt.figure()
-    grouped = df_results.groupby("system")[metric].mean().reset_index()
-    plt.bar(grouped["system"], grouped[metric])
-    plt.title(f"Average {metric.upper()} by System")
-    plt.ylabel(metric.upper())
-    plt.xlabel("Retrieval System")
-    plt.xticks(rotation=45, ha="right")
-    plt.tight_layout()
-    annotate_bars(plt.gca())
-    plt.savefig(f"results/{metric}_by_system.png")
-    plt.show()
-
-# Visualization of Beyond-Accuracy Metrics
-for metric in ["diversity", "novelty", "coverage", "serendipity"]:
-    plt.figure()
-    grouped = df_results.groupby("system")[metric].mean().reset_index()
-    plt.bar(grouped["system"], grouped[metric])
-    plt.title(f"Average {metric.capitalize()} by System")
-    plt.ylabel(metric.capitalize())
-    plt.xlabel("Retrieval System")
-    plt.xticks(rotation=45, ha="right")
-    plt.tight_layout()
-    annotate_bars(plt.gca())
-    plt.savefig(f"results/{metric}_by_system.png")
-    plt.show()
+make_plots(df_results, output_folder="results/test2")
