@@ -1,21 +1,26 @@
-from sklearnex import patch_sklearn
-patch_sklearn()  # Patches scikit-learn to use Intel oneAPI for acceleration
-
 import contextlib
 import os
 import pickle
 import bz2
 import csv
-import pandas as pd
+import pickle
 import numpy as np
+
 from sklearn import svm
-from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
-from sklearn.decomposition import PCA
+from typing import List, Dict, Set
+from sklearn.feature_selection import RFE, SelectFromModel
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
+
+import pandas as pd
+
+from sklearn.svm import LinearSVC
+from sklearn.preprocessing import MultiLabelBinarizer
+from sklearn.multioutput import ClassifierChain
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, classification_report
-from tqdm import tqdm
-from typing import List, Dict, Set
+
 
 
 class EnhancedDataset:
@@ -41,15 +46,6 @@ class EnhancedDataset:
         self.mfcc_stats_embeddings = self._load_compressed_embeddings(mfcc_stats_path)
 
         self._normalize_embeddings_per_modality()
-
-        # Adjust the target dimensions as needed for each modality.
-        # For example, reduce ResNet from 4096 → 50, Word2Vec from 300 → 50, MFCC from 104 → 50.
-        pca_target_dims = {
-            "word2vec_embeddings": 50,
-            "resnet_embeddings": 50,
-            "mfcc_stats_embeddings": 50
-        }
-        self._apply_pca_per_modality(pca_target_dims)
 
     def _load_songs(self, file_path: str):
         """Load song information from a CSV/TSV file."""
@@ -99,47 +95,58 @@ class EnhancedDataset:
             if not embedding_dict:
                 continue
 
-            # Gather all vectors in a list
             ids = list(embedding_dict.keys())
             vectors = [embedding_dict[song_id] for song_id in ids]
-
-            # Convert to matrix
             matrix = np.stack(vectors)
+
             scaler = StandardScaler()
             matrix_norm = scaler.fit_transform(matrix)
 
-            # Store the normalized vectors back in the dictionary
             for i, song_id in enumerate(ids):
                 embedding_dict[song_id] = matrix_norm[i]
 
-    # NEW: PCA step that does not remove or overwrite existing logic
-    def _apply_pca_per_modality(self, pca_target_dims: Dict[str, int]):
+    def feature_selection_pipeline(self, embedding_dict: Dict[str, np.ndarray], method: str = "all", threshold: float = 0.95) -> Dict[str, np.ndarray]:
         """
-        For each modality, optionally reduce feature dimensions via PCA.
-        The number of components is defined in pca_target_dims.
+        A unified feature selection pipeline that applies the following methods:
+            1. Remove highly correlated features using Pearson's correlation matrix.
+            2. Recursive Feature Elimination (RFE).
+            3. SelectFromModel for feature importance-based selection.
         """
-        for embedding_dict_name, target_dim in pca_target_dims.items():
-            embedding_dict = getattr(self, embedding_dict_name, {})
-            if not embedding_dict:
+
+        ids = list(embedding_dict.keys())
+        matrix = np.stack([embedding_dict[song_id] for song_id in ids])  # (n_samples, n_features)
+
+        selected_matrix = matrix
+
+        if method in ("correlation", "all"):
+            correlation_matrix = pd.DataFrame(selected_matrix).corr().abs()
+            upper_triangle = np.triu(correlation_matrix, k=1)
+            to_remove = [i for i in range(correlation_matrix.shape[1]) if any(upper_triangle[:, i] > threshold)]
+            if to_remove:
+                selected_matrix = np.delete(selected_matrix, to_remove, axis=1)
+
+        if method in ("rfe", "all"):
+            rfe_model = RFE(estimator=LogisticRegression(max_iter=500, random_state=100), n_features_to_select=10, step=10)
+            selected_matrix = rfe_model.fit_transform(selected_matrix, np.random.randint(0, 2, len(selected_matrix)))
+
+        if method in ("selectfrommodel", "all"):
+            sfm_model = SelectFromModel(estimator=RandomForestClassifier(random_state=100), threshold="median")
+            selected_matrix = sfm_model.fit_transform(selected_matrix, np.random.randint(0, 2, len(selected_matrix)))
+
+        reduced_embeddings = {ids[i]: selected_matrix[i] for i in range(len(ids))}
+        return reduced_embeddings
+
+    def _apply_feature_selection_per_modality(self, method: str = "all", threshold: float = 0.95):
+        """
+        Apply feature selection for each modality using a specified method.
+        """
+        for embedding_dict_name in ["word2vec_embeddings", "resnet_embeddings", "mfcc_stats_embeddings"]:
+            original_embedding_dict = getattr(self, embedding_dict_name, {})
+            if not original_embedding_dict:
                 continue
 
-            ids = list(embedding_dict.keys())
-            vectors = [embedding_dict[song_id] for song_id in ids]
-            matrix = np.stack(vectors)
-
-            original_dim = matrix.shape[1]
-            if original_dim <= target_dim:
-                # No reduction if the original dimension is already small or equal
-                print(f"[PCA] Skipping {embedding_dict_name}, original dim = {original_dim} <= target_dim = {target_dim}.")
-                continue
-
-            print(f"[PCA] Applying PCA on {embedding_dict_name}: from {original_dim} → {target_dim}")
-            pca = PCA(n_components=target_dim, random_state=42)
-            matrix_pca = pca.fit_transform(matrix)
-
-            # Store back
-            for i, song_id in enumerate(ids):
-                embedding_dict[song_id] = matrix_pca[i]
+            reduced_embeddings = self.feature_selection_pipeline(original_embedding_dict, method=method, threshold=threshold)
+            setattr(self, embedding_dict_name, reduced_embeddings)
 
     def get_all_songs(self):
         """Return all songs with additional metadata and genre information."""
@@ -159,34 +166,24 @@ def build_training_dataframe(dataset: EnhancedDataset, exclude_ids: set) -> pd.D
     all_songs = dataset.get_all_songs()
     shuffled_songs = np.random.choice(all_songs, size=int(len(all_songs)), replace=False)
 
-    # Debug: Initialize counters
-    embedding_dims = {"word2vec": 0, "resnet": 0, "mfcc_stats": 0}
-
     for song in shuffled_songs:
         if song["id"] in exclude_ids:
             continue
 
-        if (song["id"] not in dataset.word2vec_embeddings or
+        if (
+            song["id"] not in dataset.word2vec_embeddings or
             song["id"] not in dataset.resnet_embeddings or
-            song["id"] not in dataset.mfcc_stats_embeddings):
+            song["id"] not in dataset.mfcc_stats_embeddings
+        ):
             continue
 
         word2vec_vec = dataset.word2vec_embeddings[song["id"]]
         resnet_vec = dataset.resnet_embeddings[song["id"]]
         mfcc_vec = dataset.mfcc_stats_embeddings[song["id"]]
 
-        # Debug
-        embedding_dims["word2vec"] = len(word2vec_vec)
-        embedding_dims["resnet"] = len(resnet_vec)
-        embedding_dims["mfcc_stats"] = len(mfcc_vec)
-
         combined_features = np.concatenate([word2vec_vec, resnet_vec, mfcc_vec])
         genre_set = song["genres"]
         rows.append([song["id"], combined_features.tolist(), genre_set])
-
-    print("DEBUG: Embedding dimensions in train_svm:")
-    for key, dim in embedding_dims.items():
-        print(f"{key}: {dim}")
 
     return pd.DataFrame(rows, columns=["song_id", "features", "genres"])
 
@@ -209,27 +206,66 @@ def stratified_subsample_by_genres(df: pd.DataFrame, fraction: float = 0.1, rand
     return sampled_df
 
 
-def train_svm(df: pd.DataFrame, output_file: str = "svm_training_report.txt"):
+def train_svm(df: pd.DataFrame):
     """
-    Train an SVM model on the provided DataFrame and save the output to a file.
+    Train an early fusion SVM model using a multi-label approach. Stores:
+      - A dictionary of {genre_string: hash} for consistent IR-related usage.
+      - A multi-label binarizer for transforming predictions back to genre sets.
+      - The trained multi-label SVM chain.
     """
-    X = np.vstack(df["features"])
-    y = df["genres"].apply(lambda genres: hash(frozenset(genres))).values
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    from sklearn.multioutput import ClassifierChain
+    from sklearn.preprocessing import MultiLabelBinarizer
 
-    svm_model = svm.SVC(kernel='linear', probability=True)
+    df = df[df["genres"].apply(lambda x: len(x) > 1)]
 
-    with open(output_file, "w") as f, contextlib.redirect_stdout(f):
-        print("Training SVM...")
-        svm_model.fit(X_train, y_train)
+    all_genres = set()
+    for genres_set in df["genres"]:
+        for g in genres_set:
+            all_genres.add(g)
+    all_genres = sorted(all_genres)
 
-        y_pred = svm_model.predict(X_test)
-        print("SVM Training Accuracy:", accuracy_score(y_test, y_pred))
-        print(classification_report(y_test, y_pred))
+    genre2hash = {g: hash(g) for g in all_genres}
 
-    print(f"Training report saved to {output_file}.")
-    return svm_model
+    mlb = MultiLabelBinarizer(classes=all_genres)
+    Y = mlb.fit_transform(df["genres"])
+
+    features = np.vstack(df["features"])
+
+    X_train, X_test, Y_train, Y_test = train_test_split(
+        features, Y, test_size=0.2, random_state=100
+    )
+
+    valid_labels = np.any(Y_train, axis=0) & np.any(~Y_train, axis=0)
+    Y_train = Y_train[:, valid_labels]
+    Y_test = Y_test[:, valid_labels]
+    valid_genres = [all_genres[i] for i, v in enumerate(valid_labels) if v]
+
+    if Y_train.shape[1] == 0:
+        raise ValueError("No valid labels found after filtering.")
+
+    chain_classifier = ClassifierChain(
+        base_estimator=svm.SVC(kernel="linear", probability=True, random_state=100)
+    )
+    chain_classifier.fit(X_train, Y_train)
+
+    Y_pred = chain_classifier.predict(X_test)
+
+    cr = classification_report(Y_test, Y_pred, target_names=valid_genres, zero_division=0)
+    with open("classification_report.txt", "w") as rep_file:
+        rep_file.write(cr)
+
+    acc = accuracy_score(Y_test, Y_pred)
+    print("Multi-label Subset Accuracy:", acc)
+
+    model_bundle = {
+        "svm_model": chain_classifier,
+        "genre2hash": genre2hash,
+        "mlb": mlb,
+        "valid_genres": valid_genres,
+    }
+
+    return model_bundle
 
 
 def main():
@@ -250,24 +286,109 @@ def main():
         mfcc_stats_path
     )
 
-    # Exclude IDs from an eval subset, etc.
     eval_subset_path = "dataset/id_information_mmsr.tsv"
     exclude_ids = set(pd.read_csv(eval_subset_path, sep="\t")["id"].astype(str).tolist())
+
+    # Remove labels not found in exclude_ids
+    exclude_labels = set()
+    for eid in exclude_ids:
+        if eid in dataset.genres:
+            exclude_labels.update(dataset.genres[eid])
+    for sid in dataset.genres:
+        dataset.genres[sid] = dataset.genres[sid].intersection(exclude_labels)
 
     print("Building training DataFrame...")
     df = build_training_dataframe(dataset, exclude_ids)
 
     print("Performing stratified subsampling...")
-    df = stratified_subsample_by_genres(df, fraction=1, random_seed=100)
+    df = stratified_subsample_by_genres(df, fraction=0.05, random_seed=100)
 
-    print("Training SVM...")
-    svm_model = train_svm(df)
+    print("Determining top 50 features using LinearSVC...")
 
-    print("Saving the trained SVM model...")
-    model_path = "svm_model.pkl"
+    # Convert multi-label sets to a binary matrix
+    mlb = MultiLabelBinarizer()
+    Y_multi = mlb.fit_transform(df["genres"])       # (n_samples, n_genres)
+
+    # Reduce Y to single-label for feature importance
+    Y_single = Y_multi.argmax(axis=1)              # (n_samples, )
+
+    # Combine features into a matrix
+    X = np.vstack(df["features"])                  # (n_samples, n_features)
+
+    # Fit the single-label LinearSVC for feature importance
+    single_label_svc = LinearSVC(random_state=100, max_iter=1000)
+    single_label_svc.fit(X, Y_single)
+
+    # For multi-class LinearSVC, 'coef_' has shape (n_classes, n_features).
+    #     We can average the absolute coefficients across all classes to get importance.
+    all_coefs = np.abs(single_label_svc.coef_)     # shape: (n_classes, n_features)
+    feature_importances = all_coefs.mean(axis=0)   # shape: (n_features,)
+
+    # Pick the top 50 features
+    top_50_indices = np.argsort(-feature_importances)[:50]
+    top_50_indices_set = set(top_50_indices)       # for quick membership checking
+
+    #  Create a boolean mask for easier indexing
+    selected_mask = np.zeros(X.shape[1], dtype=bool)
+    selected_mask[top_50_indices] = True
+
+    print("Total features:", X.shape[1])
+    print("Selected top 50 features by LinearSVC average absolute coefficients.")
+
+    # Print how many from each modality
+    word2vec_dim = len(dataset.word2vec_embeddings[next(iter(dataset.word2vec_embeddings))])
+    resnet_dim = len(dataset.resnet_embeddings[next(iter(dataset.resnet_embeddings))])
+    mfcc_dim = len(dataset.mfcc_stats_embeddings[next(iter(dataset.mfcc_stats_embeddings))])
+
+    word2vec_indices = range(0, word2vec_dim)
+    resnet_indices = range(word2vec_dim, word2vec_dim + resnet_dim)
+    mfcc_indices = range(word2vec_dim + resnet_dim, word2vec_dim + resnet_dim + mfcc_dim)
+
+    word2vec_selected = [i for i in top_50_indices if i in word2vec_indices]
+    resnet_selected   = [i for i in top_50_indices if i in resnet_indices]
+    mfcc_selected     = [i for i in top_50_indices if i in mfcc_indices]
+
+    print(f"Features selected from word2vec: {len(word2vec_selected)}")
+    print(f"Features selected from resnet:   {len(resnet_selected)}")
+    print(f"Features selected from mfcc:     {len(mfcc_selected)}")
+
+    # Apply the top-50 mask to X, then re-do final multi-label training
+    X_50 = X[:, selected_mask]  # shape: (n_samples, 50)
+
+    # Update the DataFrame's features with these final 50
+    for i in range(len(df)):
+        df.at[i, "features"] = X_50[i]
+
+    print("Training final multi-label classifier on these 50 features...")
+
+    # Prepare final X, Y
+    X_final = np.vstack(df["features"])  # shape: (n_samples, 50)
+    Y_final = mlb.fit_transform(df["genres"])
+
+    # Train multi-label classifier
+    chain_classifier = ClassifierChain(LinearSVC(random_state=100, max_iter=5000))
+    X_train, X_test, Y_train, Y_test = train_test_split(X_final, Y_final, test_size=0.2, random_state=100)
+
+    chain_classifier.fit(X_train, Y_train)
+    Y_pred = chain_classifier.predict(X_test)
+
+    print("Accuracy:", accuracy_score(Y_test, Y_pred))
+
+    #  Build the final model bundle with the essential pieces
+    model_bundle = {
+        "svm_model": chain_classifier,     # The multi-label chain classifier
+        "mlb": mlb,                        # MultiLabelBinarizer
+        "selected_mask": selected_mask,    # Boolean mask for the top 50 features
+    }
+
+    # Save to pickle
+    model_path = "early_fusion_model.pkl"
     with open(model_path, "wb") as f:
-        pickle.dump(svm_model, f)
-    print(f"Model saved to {model_path}.")
+        pickle.dump(model_bundle, f)
+
+    print(f"Saved model bundle (with 50-feature mask) to {model_path}")
+
+
 
 
 if __name__ == "__main__":
