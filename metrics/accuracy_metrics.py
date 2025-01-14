@@ -153,8 +153,9 @@ def main():
         relevant_labels_array = np.array(relevant_labels)
 
         # Compute metrics
+        total_relevant = int(relevant_labels_array.sum())
         precision = Metrics.precision_at_k(relevant_labels_array, N)
-        recall = Metrics.recall_at_k(relevant_labels_array, N)
+        recall = Metrics.recall_at_k(relevant_labels_array, total_relevant, N)
         ndcg = Metrics.ndcg_at_k(relevant_labels_array, N)
         mrr = Metrics.mrr(relevant_labels_array)
 
