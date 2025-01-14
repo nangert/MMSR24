@@ -58,6 +58,8 @@ export class MetricsService {
   )
   mfccbowMetrics = toSignal(this.mfccbowMetrics$)
 
+  /*
+
   mfccbowCosMetrics$: Observable<QueryMetrics | undefined> = this.recommenderService.mfccbowCosRecommendations$.pipe(
     tap(() => this.isLoadingQueryMetrics.set(true)),
     switchMap((body) => {
@@ -68,6 +70,7 @@ export class MetricsService {
     })
   )
   mfccbowCosMetrics = toSignal(this.mfccbowCosMetrics$)
+   */
 
   mfccstatMetrics$: Observable<QueryMetrics | undefined> = this.recommenderService.mfccstatRecommendations$.pipe(
     tap(() => this.isLoadingQueryMetrics.set(true)),
@@ -80,6 +83,8 @@ export class MetricsService {
   )
   mfccstatMetrics = toSignal(this.mfccstatMetrics$)
 
+  /*
+
   mfccstatCosMetrics$: Observable<QueryMetrics | undefined> = this.recommenderService.mfccstatCosRecommendations$.pipe(
     tap(() => this.isLoadingQueryMetrics.set(true)),
     switchMap((body) => {
@@ -90,6 +95,7 @@ export class MetricsService {
     })
   )
   mfccstatCosMetrics = toSignal(this.mfccstatCosMetrics$)
+   */
 
   resnetMetrics$: Observable<QueryMetrics | undefined> = this.recommenderService.resNetRecommendations$.pipe(
     tap(() => this.isLoadingQueryMetrics.set(true)),

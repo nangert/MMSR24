@@ -1,6 +1,7 @@
 import os
 import random
 import pandas as pd
+from collections import defaultdict
 
 from plot_results import make_plots
 from retrieval_systems.baseline_system import BaselineRetrievalSystem
@@ -14,8 +15,6 @@ from retrieval_systems.late_fusion import LateFusionRetrievalSystem
 from Music4All import Dataset
 from metrics.accuracy_metrics import Metrics
 from metrics.beyond_accuracy_metrics import BeyondAccuracyMetrics
-
-# Import our updated SongDiversityOptimizer with semi & cluster methods
 from diversity.song_diversity_optimizer import SongDiversityOptimizer
 
 # -------------------------------------------------------------------
@@ -68,27 +67,29 @@ metrics_instance = Metrics()
 diversity_optimizer = SongDiversityOptimizer('dataset/id_tags_dict.tsv')
 
 # 3) Config
-NUM_REQUESTS = 10  # Number of queries to evaluate
-TOP_K = 10          # Top-K results
+NUM_REQUESTS = 200  # Number of queries to evaluate
+TOP_K = 10  # Top-K results
 retrieval_systems = {
-    "Early Fusion": early_fusion_system,
-    "Late Fusion": late_fusion_system,
-    "Baseline": baseline_system,
-    "BERT": bert_system,
-    "ResNet": resnet_system,
-    "VGG19": vgg19_system,
     "MFCC bow": mfcc_system,
-    "TFIDF": tfidf_system,
-    "LambdaRank": lambdarank_system,
+    "MFCC bow cos": mfcc_system,
+    "MFCC stat": mfcc_system,
+    "MFCC stat cos": mfcc_system
 }
 results = []
 
-# 4) One-time sample of queries
+# Here is our dictionary to accumulate the set of retrieved song_ids (for global coverage).
+# coverage_dict[system_key] = set of song IDs retrieved across all queries
+from collections import defaultdict
+
+coverage_dict = defaultdict(set)
+
+# 4) Sample of queries
 random.seed(100)
 all_songs = dataset.get_all_songs()
 query_songs = random.sample(all_songs, NUM_REQUESTS)
+all_songs_count = len(all_songs)  # total catalog size
 
-# 5) Evaluate each system. If USE_DIVERSITY_OPTIMIZATION=True, do all 4 approaches.
+# 5) Evaluate each system
 for system_name, system in retrieval_systems.items():
     print(f"\n========================================")
     print(f"Evaluating system: {system_name}")
@@ -109,6 +110,10 @@ for system_name, system in retrieval_systems.items():
         else:
             retrieved_songs_original = system.get_retrieval(query_song, TOP_K)
 
+        # Accumulate these retrieved IDs for global coverage
+        for s in retrieved_songs_original:
+            coverage_dict[system_name].add(s.song_id)
+
         # Compute metrics for the original retrieval
         total_relevant = dataset.get_total_relevant(
             query_song.to_dict(),
@@ -127,10 +132,15 @@ for system_name, system in retrieval_systems.items():
         catalog_popularity = {sng.song_id: sng.popularity for sng in all_songs}
         catalog_dicts = [sng.to_dict() for sng in all_songs]
         retrieved_dicts_original = [s.to_dict() for s in retrieved_songs_original]
+
+        # We'll skip the "query-level coverage" from BeyondAccuracyMetrics.coverage(...)
+        # or keep it if you still want an approximate coverage per query. But let's keep it
+        # out here for clarity, or set it to some placeholder.
+
         beyond_original = {
             "diversity": BeyondAccuracyMetrics.diversity(retrieved_dicts_original),
             "novelty": BeyondAccuracyMetrics.novelty(retrieved_dicts_original, catalog_popularity),
-            "coverage": BeyondAccuracyMetrics.coverage(retrieved_dicts_original, len(catalog_dicts)),
+            "coverage": 0.0,  # we won't use the per-query coverage, or you can keep it
             "serendipity": BeyondAccuracyMetrics.serendipity(
                 retrieved_dicts_original, [query_song.to_dict()], catalog_dicts
             )
@@ -144,7 +154,7 @@ for system_name, system in retrieval_systems.items():
             **beyond_original
         })
 
-        # (B) If we want diversity, retrieve top-(5*K) and apply all 3 methods
+        # (B) If we want diversity
         if USE_DIVERSITY_OPTIMIZATION:
             adapted_k = TOP_K * 5
             if system_name == "MFCC stat cos":
@@ -162,6 +172,9 @@ for system_name, system in retrieval_systems.items():
 
             # a) Greedy
             retrieved_div_greedy = diversity_optimizer.greedy_optimize_diversity(retrieved_songs_5k, TOP_K)
+            for s in retrieved_div_greedy:
+                coverage_dict[system_name + "_div_greedy"].add(s.song_id)
+
             metrics_div_greedy = metrics_instance.calculate_metrics(
                 query_song.to_dict(),
                 [s.to_dict() for s in retrieved_div_greedy],
@@ -173,7 +186,7 @@ for system_name, system in retrieval_systems.items():
             beyond_div_greedy = {
                 "diversity": BeyondAccuracyMetrics.diversity(retrieved_dicts_greedy),
                 "novelty": BeyondAccuracyMetrics.novelty(retrieved_dicts_greedy, catalog_popularity),
-                "coverage": BeyondAccuracyMetrics.coverage(retrieved_dicts_greedy, len(catalog_dicts)),
+                "coverage": 0.0,  # skipping per-query coverage
                 "serendipity": BeyondAccuracyMetrics.serendipity(
                     retrieved_dicts_greedy, [query_song.to_dict()], catalog_dicts
                 )
@@ -187,6 +200,9 @@ for system_name, system in retrieval_systems.items():
 
             # b) Semi-Greedy
             retrieved_div_semi = diversity_optimizer.semi_greedy_optimize_diversity(retrieved_songs_5k, TOP_K)
+            for s in retrieved_div_semi:
+                coverage_dict[system_name + "_div_semi"].add(s.song_id)
+
             metrics_div_semi = metrics_instance.calculate_metrics(
                 query_song.to_dict(),
                 [s.to_dict() for s in retrieved_div_semi],
@@ -198,7 +214,7 @@ for system_name, system in retrieval_systems.items():
             beyond_div_semi = {
                 "diversity": BeyondAccuracyMetrics.diversity(retrieved_dicts_semi),
                 "novelty": BeyondAccuracyMetrics.novelty(retrieved_dicts_semi, catalog_popularity),
-                "coverage": BeyondAccuracyMetrics.coverage(retrieved_dicts_semi, len(catalog_dicts)),
+                "coverage": 0.0,
                 "serendipity": BeyondAccuracyMetrics.serendipity(
                     retrieved_dicts_semi, [query_song.to_dict()], catalog_dicts
                 )
@@ -212,6 +228,9 @@ for system_name, system in retrieval_systems.items():
 
             # c) Cluster
             retrieved_div_cluster = diversity_optimizer.cluster_optimize_diversity_tags(retrieved_songs_5k, TOP_K)
+            for s in retrieved_div_cluster:
+                coverage_dict[system_name + "_div_cluster"].add(s.song_id)
+
             metrics_div_cluster = metrics_instance.calculate_metrics(
                 query_song.to_dict(),
                 [s.to_dict() for s in retrieved_div_cluster],
@@ -223,7 +242,7 @@ for system_name, system in retrieval_systems.items():
             beyond_div_cluster = {
                 "diversity": BeyondAccuracyMetrics.diversity(retrieved_dicts_cluster),
                 "novelty": BeyondAccuracyMetrics.novelty(retrieved_dicts_cluster, catalog_popularity),
-                "coverage": BeyondAccuracyMetrics.coverage(retrieved_dicts_cluster, len(catalog_dicts)),
+                "coverage": 0.0,
                 "serendipity": BeyondAccuracyMetrics.serendipity(
                     retrieved_dicts_cluster, [query_song.to_dict()], catalog_dicts
                 )
@@ -237,8 +256,28 @@ for system_name, system in retrieval_systems.items():
 
 # 9) Build dataframe & write out
 df_results = pd.DataFrame(results)
-os.makedirs("results/test3", exist_ok=True)
-output_csv = os.path.join("results/test3", "evaluation_results.csv")
+os.makedirs("results/mfcc", exist_ok=True)
+output_csv = os.path.join("results/mfcc", "evaluation_results.csv")
 df_results.to_csv(output_csv, index=False)
+print(f"[INFO] Saved per-query results to {output_csv}")
 
-make_plots(df_results, output_folder="results/test2")
+# 10) Compute Global Coverage
+# Let's build a small DataFrame for coverage:
+coverage_rows = []
+for system_key, song_ids in coverage_dict.items():
+    global_coverage = len(song_ids) / all_songs_count
+    coverage_rows.append({
+        "system": system_key,
+        "global_coverage": global_coverage
+    })
+
+df_coverage = pd.DataFrame(coverage_rows)
+df_coverage.sort_values("global_coverage", ascending=False, inplace=True)
+df_coverage_path = os.path.join("results/mfcc", "global_coverage.csv")
+df_coverage.to_csv(df_coverage_path, index=False)
+print(f"[INFO] Global coverage saved to {df_coverage_path}")
+
+# 11) Generate Plots
+make_plots(df_results, output_folder="results/mfcc")
+
+print("[INFO] Done. Check 'results/mfcc' for evaluation_results.csv, global_coverage.csv, and plots.")

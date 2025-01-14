@@ -112,8 +112,8 @@ def analyze_results(input_csv: str, output_csv: str):
     # If you want different colors for each approach, we can define a color map:
     color_map = {
         "normal": "blue",
-        "div_greedy": "red",
-        "div_semi": "green",
+        "div_greedy": "darkorange",
+        "div_semi": "cyan",
         "div_cluster": "purple",
     }
 
@@ -137,7 +137,7 @@ def analyze_results(input_csv: str, output_csv: str):
 
     plt.xlabel("NDCG")
     plt.ylabel("Diversity")
-    plt.title("Scatterplot of NDCG vs Diversity @10")
+    plt.title("Scatterplot of NDCG vs Diversity @20")
 
     # optionally add a legend for the approach colors
     handles = []
@@ -147,7 +147,7 @@ def analyze_results(input_csv: str, output_csv: str):
     plt.legend(handles=handles, title="Approach")
 
     plt.tight_layout()
-    plt.savefig("results/test1/ndcg_vs_diversity_scatter.png")
+    plt.savefig("results/100q20n/ndcg_vs_diversity_scatter.png")
     plt.show()
 
 
@@ -155,6 +155,6 @@ def analyze_results(input_csv: str, output_csv: str):
 # Example usage if run directly
 # ------------------------------------------------------------------------------
 if __name__ == "__main__":
-    input_csv_path = "results/test1/evaluation_results.csv"      # your CSV file
-    output_csv_path = "results/test1/analysis_results.csv"       # aggregated output
+    input_csv_path = "results/100q20n/evaluation_results.csv"      # your CSV file
+    output_csv_path = "results/100q20n/analysis_results.csv"       # aggregated output
     analyze_results(input_csv_path, output_csv_path)

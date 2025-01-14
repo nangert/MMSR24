@@ -2,7 +2,7 @@ import {computed, inject, Injectable, Signal, signal, WritableSignal} from '@ang
 import {Observable, of, shareReplay, Subject, switchMap, tap} from 'rxjs';
 import {RetrieveResult, Song} from '../models/retrieveResult';
 import {RecommenderApiService} from './recommender-api.service';
-import {toObservable, toSignal} from '@angular/core/rxjs-interop';
+import {toSignal} from '@angular/core/rxjs-interop';
 import {RetrieveApiModel} from '../models/retrieveModel';
 
 @Injectable({
@@ -28,14 +28,11 @@ export class RecommenderService {
     if (this.mfccbowRecommendations()) {
       list.push(this.mfccbowRecommendations());
     }
-    if (this.mfccbowCosRecommendations()) {
-      list.push(this.mfccbowCosRecommendations());
-    }
     if (this.mfccstatRecommendations()) {
       list.push(this.mfccstatRecommendations());
     }
-    if (this.mfccstatCosRecommendations()) {
-      list.push(this.mfccstatCosRecommendations());
+    if (this.mfccbowRecommendations()) {
+      list.push(this.mfccbowRecommendations());
     }
     if (this.resNetRecommendations()) {
       list.push(this.resNetRecommendations());
@@ -128,10 +125,10 @@ export class RecommenderService {
   )
   bertRecommendations: Signal<RetrieveResult | undefined> = toSignal(this.bertRecommendations$)
 
-  getMFCCRecommendations: Subject<RetrieveApiModel | void> = new Subject<RetrieveApiModel | void>();
-  getMFCCRecommendations$ = this.getMFCCRecommendations.asObservable();
+  getMFCCBowRecommendations: Subject<RetrieveApiModel | void> = new Subject<RetrieveApiModel | void>();
+  getMFCCBowRecommendations$ = this.getMFCCBowRecommendations.asObservable();
 
-  mfccbowRecommendations$: Observable<RetrieveResult | undefined> = this.getMFCCRecommendations$.pipe(
+  mfccbowRecommendations$: Observable<RetrieveResult | undefined> = this.getMFCCBowRecommendations$.pipe(
     switchMap((model) => {
       if (!model) return of(void 0)
 
@@ -151,6 +148,7 @@ export class RecommenderService {
   )
   mfccbowRecommendations: Signal<RetrieveResult | undefined> = toSignal(this.mfccbowRecommendations$)
 
+  /*
   mfccbowCosRecommendations$: Observable<RetrieveResult | undefined> = this.getMFCCRecommendations$.pipe(
     switchMap((model) => {
       if (!model) return of(void 0)
@@ -170,8 +168,12 @@ export class RecommenderService {
     })
   )
   mfccbowCosRecommendations: Signal<RetrieveResult | undefined> = toSignal(this.mfccbowCosRecommendations$)
+   */
 
-  mfccstatRecommendations$: Observable<RetrieveResult | undefined> = this.getMFCCRecommendations$.pipe(
+  getMFCCStatRecommendations: Subject<RetrieveApiModel | void> = new Subject<RetrieveApiModel | void>();
+  getMFCCStatRecommendations$ = this.getMFCCStatRecommendations.asObservable();
+
+  mfccstatRecommendations$: Observable<RetrieveResult | undefined> = this.getMFCCStatRecommendations$.pipe(
     switchMap((model) => {
       if (!model) return of(void 0)
 
@@ -191,6 +193,7 @@ export class RecommenderService {
   )
   mfccstatRecommendations: Signal<RetrieveResult | undefined> = toSignal(this.mfccstatRecommendations$)
 
+  /*
   mfccstatCosRecommendations$: Observable<RetrieveResult | undefined> = this.getMFCCRecommendations$.pipe(
     switchMap((model) => {
       if (!model) return of(void 0)
@@ -210,6 +213,7 @@ export class RecommenderService {
     })
   )
   mfccstatCosRecommendations: Signal<RetrieveResult | undefined> = toSignal(this.mfccstatCosRecommendations$)
+   */
 
   getResNetRecommendations: Subject<RetrieveApiModel | void> = new Subject<RetrieveApiModel | void>();
   getResNetRecommendations$ = this.getResNetRecommendations.asObservable();
@@ -331,7 +335,8 @@ export class RecommenderService {
     this.getBaselineRecommendations.next(void 0)
     this.getTfIdfRecommendations.next(void 0)
     this.getBertRecommendations.next(void 0)
-    this.getMFCCRecommendations.next(void 0)
+    this.getMFCCBowRecommendations.next(void 0)
+    this.getMFCCStatRecommendations.next(void 0)
     this.getResNetRecommendations.next(void 0)
     this.getVGG19Recommendations.next(void 0)
     this.getLamdaMARTRecommendations.next(void 0)

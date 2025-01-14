@@ -37,7 +37,8 @@ export class FilterComponent implements OnInit{
     { name: 'Baseline', key: 'Baseline' },
     { name: 'Text based', key: 'TfIdf' },
     { name: 'BERT', key: 'Bert' },
-    { name: 'MFCC', key: 'MFCC' },
+    { name: 'MFCC BoW', key: 'MFCCBOW' },
+    { name: 'MFCC Stats', key: 'MFCCSTAT' },
     { name: 'ResNet', key: 'ResNet' },
     { name: 'VGG19', key: 'VGG19' },
     { name: 'LambdaMART', key: 'LambdaMART' },
@@ -110,8 +111,11 @@ export class FilterComponent implements OnInit{
         case 'Bert':
           this.recommenderService.getBertRecommendations.next(model)
           break
-        case 'MFCC':
-          this.recommenderService.getMFCCRecommendations.next(model)
+        case 'MFCCBOW':
+          this.recommenderService.getMFCCBowRecommendations.next(model)
+          break
+        case 'MFCCSTAT':
+          this.recommenderService.getMFCCBowRecommendations.next(model)
           break
         case 'ResNet':
           this.recommenderService.getResNetRecommendations.next(model)

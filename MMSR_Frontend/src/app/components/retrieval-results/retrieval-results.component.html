@@ -35,25 +35,11 @@
         retrievalSystem="MFCC BoW Model"
       />
     }
-    @if (recommenderService.mfccbowCosRecommendations()) {
-      <app-retrieval-result-model
-        [retrievalResult]="recommenderService.mfccbowCosRecommendations()!"
-        [queryResult]="metricService.mfccbowCosMetrics"
-        retrievalSystem="MFCC BoW Model (Cosine sim)"
-      />
-    }
     @if (recommenderService.mfccstatRecommendations()) {
       <app-retrieval-result-model
         [retrievalResult]="recommenderService.mfccstatRecommendations()!"
         [queryResult]="metricService.mfccstatMetrics"
         retrievalSystem="MFCC Stat Model"
-      />
-    }
-    @if (recommenderService.mfccstatCosRecommendations()) {
-      <app-retrieval-result-model
-        [retrievalResult]="recommenderService.mfccstatCosRecommendations()!"
-        [queryResult]="metricService.mfccstatCosMetrics"
-        retrievalSystem="MFCC Stat Model (Cosine similarity)"
       />
     }
     @if (recommenderService.resNetRecommendations()) {
