@@ -312,9 +312,9 @@ def train_lambdarank(
         "objective": "lambdarank",
         "metric": ["ndcg", "map"],  # Specify metrics to evaluate
         "eval_at": [5, 10],
-        "learning_rate": 0.0005,
-        "num_leaves": 103,
-        "min_data_in_leaf": 20,
+        "learning_rate": 0.001,
+        "num_leaves": 63,
+        "min_data_in_leaf": 50,
         "verbosity": 1,
         "label_gain": label_gain
     }
@@ -399,7 +399,7 @@ def main():
     print(f"New validation labels: {df_val[label_col].unique()}")
 
     # Train the LambdaRank model
-    print("\nraining the LambdaRank model...")
+    print("\nTraining the LambdaRank model...")
     model = train_lambdarank(df_train, df_val, feature_cols, label_col, user_col)
     print("LambdaRank model training complete.")
 
