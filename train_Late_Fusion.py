@@ -1,6 +1,3 @@
-from sklearnex import patch_sklearn
-patch_sklearn()  # Patches scikit-learn to use Intel oneAPI for acceleration
-
 import contextlib
 import os
 import pickle
@@ -10,11 +7,13 @@ import pandas as pd
 import numpy as np
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn import svm
+from sklearn.ensemble import RandomForestClassifier  # Added import
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, classification_report
-from sklearn.preprocessing import StandardScaler
-from tqdm import tqdm
+from sklearn.preprocessing import StandardScaler, MultiLabelBinarizer
+from sklearn.multioutput import ClassifierChain
 from typing import List, Dict, Set
+from tqdm import tqdm
 
 
 class EnhancedDataset:
@@ -58,7 +57,6 @@ class EnhancedDataset:
         with open(file_path, 'r', encoding='utf-8') as file:
             reader = csv.DictReader(file, delimiter='\t')
             for row in reader:
-                # Store genres as a set
                 self.genres[row["id"]] = set(eval(row["genre"]))
 
     def _load_metadata(self, file_path: str):
@@ -129,10 +127,8 @@ def build_late_fusion_training_df(dataset: EnhancedDataset, exclude_ids: Set[str
     rows = []
     all_songs = dataset.get_all_songs()
 
-    # Shuffle for potential randomization, just like early fusion
     shuffled_songs = np.random.choice(all_songs, size=len(all_songs), replace=False)
 
-    # Debug: track dimensions of each modality
     embedding_dims = {"word2vec": 0, "resnet": 0, "mfcc_stats": 0}
 
     for song in shuffled_songs:
@@ -150,7 +146,6 @@ def build_late_fusion_training_df(dataset: EnhancedDataset, exclude_ids: Set[str
         resnet_vec = dataset.resnet_embeddings[sid]
         mfcc_vec = dataset.mfcc_stats_embeddings[sid]
 
-        # For debug, store the dimension once
         embedding_dims["word2vec"] = len(word2vec_vec)
         embedding_dims["resnet"] = len(resnet_vec)
         embedding_dims["mfcc_stats"] = len(mfcc_vec)
@@ -185,97 +180,103 @@ def stratified_subsample_by_genres(df: pd.DataFrame, fraction: float = 0.1, rand
     return sampled_df
 
 
-def train_late_fusion_calibrated(df: pd.DataFrame, output_file: str = "late_fusion_report.txt") -> dict:
+def train_late_fusion_multi_label(df: pd.DataFrame, output_file: str = "late_fusion_report.txt") -> dict:
     """
-    Train a calibrated late-fusion pipeline:
-      1. Train calibrated unimodal SVMs (one per modality).
+    Train a multi-label late-fusion pipeline:
+      1. Train a ClassifierChain for each unimodal embedding.
       2. Generate unimodal probability outputs.
-      3. Train a final SVM on those probabilities (late fusion).
+      3. Train a final ClassifierChain on those probabilities for late fusion.
 
-    Returns a dictionary containing {unimodal_svms, fusion_svm}.
+    Returns:
+        A dictionary containing trained models and metadata.
     """
-    # Convert genre sets into numeric labels (similar to early fusion)
-    def hash_genres(genre_set):
-        return hash(frozenset(genre_set))
 
-    # Use the hashed genre sets as y
-    df["label"] = df["genres"].apply(hash_genres)
+    # Remove songs with 0 or 1 genre
+    df = df[df["genres"].apply(lambda x: len(x) > 1)]
 
-    train_df, test_df = train_test_split(df, test_size=0.2, random_state=100)
+    # MultiLabelBinarizer to convert genres into a binary matrix
+    all_genres = sorted({g for row in df["genres"] for g in row})
+    mlb = MultiLabelBinarizer(classes=all_genres)
+    Y = mlb.fit_transform(df["genres"])  # shape: (num_samples, num_labels)
 
-    # Train Unimodal Classifiers + Calibrate
-    unimodal_svms = {}
-    modalities = ["word2vec", "resnet", "mfcc_stats"]
+    # Prepare feature arrays
+    word2vec_arr = np.vstack(df["word2vec"])
+    resnet_arr = np.vstack(df["resnet"])
+    mfcc_arr = np.vstack(df["mfcc_stats"])
 
-    # We’ll store the debug prints in the output file
+    # Split into train/test sets
+    X_train_w2v, X_test_w2v, Y_train, Y_test = train_test_split(word2vec_arr, Y, test_size=0.2, random_state=100)
+    X_train_res, X_test_res = train_test_split(resnet_arr, test_size=0.2, random_state=100)
+    X_train_mfcc, X_test_mfcc = train_test_split(mfcc_arr, test_size=0.2, random_state=100)
+
+    valid_labels = np.any(Y_train, axis=0) & np.any(~Y_train, axis=0)
+    Y_train = Y_train[:, valid_labels]
+    Y_test = Y_test[:, valid_labels]
+    valid_genres = [all_genres[i] for i, v in enumerate(valid_labels) if v]
+
+    if Y.shape[1] == 0:
+        raise ValueError("No valid labels remain after filtering out single-class labels.")
+
+    # Train Unimodal ClassifierChains
+    def train_classifier_chain(X_train, y_train, name):
+        print(f"\n=== Training ClassifierChain for '{name}' ===")
+        chain = ClassifierChain(
+            base_estimator=RandomForestClassifier(n_estimators=100, random_state=100)
+        )
+        chain.fit(X_train, y_train)
+        print(f"Done training {name}.")
+        return chain
+
     with open(output_file, "w") as f, contextlib.redirect_stdout(f):
-        print("Training Late Fusion with Calibrated Unimodal SVMs...\n")
+        print("Training Multi-Label Late Fusion...")
 
-        for modality in modalities:
-            print(f"--- Training SVM for modality '{modality}' ---")
-            X_train_mod = np.vstack(train_df[modality])
-            y_train = train_df["label"].values
+        w2v_chain = train_classifier_chain(X_train_w2v, Y_train, "Word2Vec")
+        res_chain = train_classifier_chain(X_train_res, Y_train, "ResNet")
+        mfcc_chain = train_classifier_chain(X_train_mfcc, Y_train, "MFCC")
 
-            # Train raw SVM
-            svm_model_raw = svm.SVC(kernel="linear", probability=False, random_state=100)
-            svm_model_raw.fit(X_train_mod, y_train)
+        # Generate stacked features from unimodal probability outputs
+        def get_stacked_features(X_w2v, X_res, X_mfcc):
+            p_w2v = w2v_chain.predict_proba(X_w2v)  # shape: (samples, #labels)
+            p_res = res_chain.predict_proba(X_res)
+            p_mfcc = mfcc_chain.predict_proba(X_mfcc)
+            # Stack horizontally => shape: (samples, #labels * 3)
+            return np.hstack([p_w2v, p_res, p_mfcc])
 
-            # Calibrate using Platt's scaling
-            calibrated_model = CalibratedClassifierCV(
-                estimator=svm_model_raw,
-                cv="prefit",
-                method="sigmoid"
-            )
-            calibrated_model.fit(X_train_mod, y_train)
+        print("\n=== Generating training & test features for fusion ===")
+        X_train_fusion = get_stacked_features(X_train_w2v, X_train_res, X_train_mfcc)
+        X_test_fusion = get_stacked_features(X_test_w2v, X_test_res, X_test_mfcc)
 
-            unimodal_svms[modality] = calibrated_model
-            print("Done.\n")
+        # Train final ClassifierChain for fusion
+        print("\n=== Training fusion ClassifierChain ===")
+        fusion_chain = ClassifierChain(
+            base_estimator=RandomForestClassifier(n_estimators=100, random_state=100)
+        )
+        fusion_chain.fit(X_train_fusion, Y_train)
 
-        # Generate Late Fusion Features
-        def generate_late_fusion_features(df_subset: pd.DataFrame):
-            # For each unimodal classifier, produce predict_proba outputs
-            # Then horizontally stack them to create the fusion feature
-            feature_list = []
-            for m in modalities:
-                X_mod = np.vstack(df_subset[m])
-                probs = unimodal_svms[m].predict_proba(X_mod)
-                feature_list.append(probs)
-            return np.hstack(feature_list)
+        # Evaluate
+        Y_pred = fusion_chain.predict(X_test_fusion)
+        cls_rep = classification_report(Y_test, Y_pred, target_names=valid_genres, zero_division=0)
+        acc = accuracy_score(Y_test, Y_pred)
 
-        print("--- Generating training features for fusion ---")
-        X_train_fusion = generate_late_fusion_features(train_df)
-        y_train_fusion = train_df["label"].values
-
-        print("--- Generating test features for fusion ---")
-        X_test_fusion = generate_late_fusion_features(test_df)
-        y_test_fusion = test_df["label"].values
-
-        # Train Final Fusion Classifier
-        print("--- Training final SVM on fused probabilities ---")
-        fusion_svm = svm.SVC(kernel="linear", probability=True, random_state=100)
-        fusion_svm.fit(X_train_fusion, y_train_fusion)
-        print("Done.\n")
-
-        # Evaluate the final fusion classifier
-        y_pred = fusion_svm.predict(X_test_fusion)
-        acc = accuracy_score(y_test_fusion, y_pred)
-        cls_rep = classification_report(y_test_fusion, y_pred, zero_division=0)
-
-        print("=== Late Fusion Evaluation ===")
-        print(f"Test Accuracy: {acc:.4f}")
+        print("\n=== Late Fusion Evaluation (Multi-Label) ===")
         print("Classification Report:")
         print(cls_rep)
+        print(f"Multi-label Subset Accuracy: {acc:.4f}")
 
-    print(f"Late Fusion training report saved to {output_file}.")
+    print(f"Multi-label Late Fusion training report saved to {output_file}.")
 
     return {
-        "unimodal_svms": unimodal_svms,
-        "fusion_svm": fusion_svm
+        "mlb": mlb,
+        "valid_genres": valid_genres,
+        "word2vec_chain": w2v_chain,
+        "resnet_chain": res_chain,
+        "mfcc_chain": mfcc_chain,
+        "fusion_chain": fusion_chain
     }
 
 
 def main():
-    # Same file paths and structure as early fusion
+    # Same file paths and structure as before
     info_file_path = "dataset/train/id_information.csv"
     genres_file_path = "dataset/train/id_genres_mmsr.tsv"
     metadata_file_path = "dataset/train/id_metadata.csv"
@@ -283,7 +284,6 @@ def main():
     resnet_path = "dataset/train/id_resnet.tsv.bz2"
     mfcc_stats_path = "dataset/train/id_mfcc_stats.tsv.bz2"
 
-    # Load dataset
     print("Loading dataset...")
     dataset = EnhancedDataset(
         info_file_path,
@@ -294,23 +294,18 @@ def main():
         mfcc_stats_path
     )
 
-    # Exclude IDs from an evaluation subset or other criteria
     eval_subset_path = "dataset/id_information_mmsr.tsv"
     exclude_ids = set(pd.read_csv(eval_subset_path, sep="\t")["id"].astype(str).tolist())
 
-    # Build the DataFrame for late fusion
     print("Building Late Fusion DataFrame...")
     df = build_late_fusion_training_df(dataset, exclude_ids)
 
-    # Perform stratified subsampling to ensure balanced classes
     print("Performing stratified subsampling...")
-    df = stratified_subsample_by_genres(df, fraction=0.1, random_seed=100)
+    df = stratified_subsample_by_genres(df, fraction=0.01, random_seed=100)
 
-    # Train the late fusion pipeline with calibrated unimodal classifiers
-    print("Training Calibrated Late Fusion...")
-    model_bundle = train_late_fusion_calibrated(df, output_file="late_fusion_training_report.txt")
+    print("Training multi-label Late Fusion...")
+    model_bundle = train_late_fusion_multi_label(df, output_file="late_fusion_training_report.txt")
 
-    # Save the entire model bundle
     model_path = "late_fusion_model.pkl"
     print(f"Saving model bundle to {model_path}...")
     with open(model_path, "wb") as f:
