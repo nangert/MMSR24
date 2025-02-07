@@ -31,9 +31,6 @@ export class RecommenderService {
     if (this.mfccstatRecommendations()) {
       list.push(this.mfccstatRecommendations());
     }
-    if (this.mfccbowRecommendations()) {
-      list.push(this.mfccbowRecommendations());
-    }
     if (this.resNetRecommendations()) {
       list.push(this.resNetRecommendations());
     }

@@ -115,7 +115,7 @@ export class FilterComponent implements OnInit{
           this.recommenderService.getMFCCBowRecommendations.next(model)
           break
         case 'MFCCSTAT':
-          this.recommenderService.getMFCCBowRecommendations.next(model)
+          this.recommenderService.getMFCCStatRecommendations.next(model)
           break
         case 'ResNet':
           this.recommenderService.getResNetRecommendations.next(model)

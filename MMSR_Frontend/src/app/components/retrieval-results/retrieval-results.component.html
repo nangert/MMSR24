@@ -6,7 +6,7 @@
 }
 <div class="m-3">
   <div class="retrieval-results-container"
-       [class.single-result]="recommenderService.retrievalResults.length === 1">
+       [class.single-result]="recommenderService.retrievalResults().length === 1">
     @if (recommenderService.baselineRecommendations()) {
       <app-retrieval-result-model
         [retrievalResult]="recommenderService.baselineRecommendations()!"

@@ -48,8 +48,7 @@ mfcc_retrieval_system = MFCCRetrievalSystem(dataset)
 tfidf_retrieval_system = TFIDFRetrievalSystem(dataset, tfidf_embeddings_path)
 lambdarank_model = 'models/lambdarank_model.pth'
 lambdarank_retrieval_system = LambdaRankRetrievalSystem(dataset, lambdarank_model, dataset.lambdarank_feature_dim)
-early_fusion_retrieval_system = EarlyFusionRetrievalSystem(dataset, dataset.word2vec_embeddings, dataset.resnet_embeddings,
-                                                           dataset.mfcc_embeddings_stat, 'models/early_fusion_model.pkl')
+early_fusion_retrieval_system = EarlyFusionRetrievalSystem(dataset, 'models/early_fusion_model.pkl')
 late_fusion_retrieval_system = LateFusionRetrievalSystem(dataset, dataset.word2vec_embeddings, dataset.resnet_embeddings,
                                                          dataset.mfcc_embeddings_stat, 'models/late_fusion_model.pkl')
 
