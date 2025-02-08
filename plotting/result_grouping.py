@@ -4,8 +4,8 @@ import os
 
 class DataPlotter:
     def __init__(self,
-                 global_coverage_csv="/results/full/global_coverave.csv",
-                 evaluation_results_csv="/results/full/evaluation_results.csv"):
+                 global_coverage_csv="/results/full20d/global_coverave.csv",
+                 evaluation_results_csv="/results/full20d/evaluation_results.csv"):
         """
         Initialize the DataPlotter with paths to the necessary CSV files.
         """
