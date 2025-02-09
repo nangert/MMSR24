@@ -2,17 +2,18 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
+
 def analyze_results(input_csv: str, output_csv: str):
     """
-    1) Reads the CSV file containing system/query metrics.
-    2) Parses the system name -> (system_base, approach).
-    3) Groups by (system_base, approach) to get average metrics over queries.
-    4) Saves the grouped results as a new CSV file.
-    5) Creates side-by-side bar plots (NDCG & Diversity).
-    6) Creates a scatterplot with NDCG on x-axis and Diversity on y-axis.
+    Reads the CSV file containing system/query metrics.
+    Parses the system name -> (system_base, approach).
+    Groups by (system_base, approach) to get average metrics over queries.
+    Saves the grouped results as a new CSV file.
+    Creates side-by-side bar plots (NDCG & Diversity).
+    Creates a scatterplot with NDCG on x-axis and Diversity on y-axis.
     """
 
-    # 1) Load the CSV
+    # Load the CSV
     df = pd.read_csv(input_csv)
 
     # List of metric columns to average
@@ -27,7 +28,6 @@ def analyze_results(input_csv: str, output_csv: str):
         "serendipity",
     ]
 
-    # -- Function to parse system names (to handle normal, div_greedy, etc.) --
     def parse_system_name(sys_name: str):
         if sys_name.endswith("_div_greedy"):
             return sys_name.replace("_div_greedy", ""), "div_greedy"
@@ -41,20 +41,17 @@ def analyze_results(input_csv: str, output_csv: str):
     # Create two new columns in df
     df["system_base"], df["approach"] = zip(*df["system"].apply(parse_system_name))
 
-    # 2) Group by (system_base, approach) and average numeric metrics
+    # Group by (system_base, approach) and average numeric metrics
     df_grouped = (
         df.groupby(["system_base", "approach"], as_index=False)[metric_cols]
           .mean()
     )
 
-    # 3) Save results
+    # Save results
     df_grouped.to_csv(output_csv, index=False)
     print(f"Grouped results saved to {output_csv}")
 
-    # -----------------------------------------
-    # 4) Side-by-side bar chart for reference
-    # (your existing code to plot bars for NDCG & Diversity, if desired)
-    # -----------------------------------------
+    # ide-by-side bar chart for reference
     def side_by_side_plot(df_input, value_col, title_str, ylabel_str, savefig_name):
         df_pivot = df_input.pivot(index="system_base", columns="approach", values=value_col).fillna(0)
         df_pivot.sort_index(inplace=True)
@@ -88,7 +85,6 @@ def analyze_results(input_csv: str, output_csv: str):
         plt.savefig(savefig_name)
         plt.show()
 
-    # Example usage
     side_by_side_plot(
         df_input=df_grouped[["system_base", "approach", "ndcg_at_k"]],
         value_col="ndcg_at_k",
@@ -105,11 +101,7 @@ def analyze_results(input_csv: str, output_csv: str):
         savefig_name="diversity_comparison.png"
     )
 
-    # -----------------------------------------
-    # 5) Scatterplot: NDCG vs. Diversity
-    # -----------------------------------------
-    # We'll do one point per row in df_grouped.
-    # If you want different colors for each approach, we can define a color map:
+    # Scatterplot: NDCG vs. Diversity
     color_map = {
         "normal": "blue",
         "div_greedy": "darkorange",
@@ -130,7 +122,7 @@ def analyze_results(input_csv: str, output_csv: str):
         # plot a single point
         plt.scatter(x_val, y_val, color=c, s=50, alpha=0.7)
 
-        # optional: label the point
+        # label the point
         label_str = f"{system_base}-{approach}"
         plt.annotate(label_str, (x_val, y_val+0.001),
                      fontsize=8, ha="center")
@@ -151,10 +143,7 @@ def analyze_results(input_csv: str, output_csv: str):
     plt.show()
 
 
-# ------------------------------------------------------------------------------
-# Example usage if run directly
-# ------------------------------------------------------------------------------
 if __name__ == "__main__":
-    input_csv_path = "results/100q20n/evaluation_results.csv"      # your CSV file
-    output_csv_path = "results/100q20n/analysis_results.csv"       # aggregated output
+    input_csv_path = "results/100q20n/evaluation_results.csv"
+    output_csv_path = "results/100q20n/analysis_results.csv"
     analyze_results(input_csv_path, output_csv_path)

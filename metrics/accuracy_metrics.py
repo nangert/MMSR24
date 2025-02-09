@@ -118,7 +118,7 @@ class Metrics:
 
 def main():
     """
-    Main function to compute and print average accuracy metrics.
+    Main function to compute and print average accuracy metrics. DEPRECATED
     """
     # Parameters
     retrieval_results_path = '../results/old/retrieval_results.json'
@@ -145,8 +145,6 @@ def main():
 
         for song in retrieved_songs:
             song_genres = set(song['genres'])
-            # TODO: find a better way to determine relevance
-            #  They used last year: maybe variant of jaccard (relevant if jaccard index on genre > 0.5)
             is_relevant = int(bool(query_genres & song_genres))  # 1 if any common genre
             relevant_labels.append(is_relevant)
 

@@ -8,6 +8,9 @@ class LateFusionRetrievalSystem:
     """
     A late fusion retrieval system that combines probabilities from unimodal classifiers
     (Word2Vec, ResNet, MFCC Stat) and uses a final ClassifierChain for multi-label retrieval.
+    This version applies Locally Linear Embedding (LLE) with 17 components to each modality
+    before the unimodal classifiers (as was done during training), and does not apply any additional
+    dimensionality reduction after stacking.
     """
 
     def __init__(
@@ -20,28 +23,22 @@ class LateFusionRetrievalSystem:
     ):
         """
         Initialize the retrieval system with the dataset, embeddings, and the late fusion model.
-
-        Args:
-            dataset (Dataset): The dataset containing song information.
-            word2vec_embeddings (Dict[str, np.ndarray]): Word2Vec embeddings for songs.
-            resnet_embeddings (Dict[str, np.ndarray]): ResNet embeddings for songs.
-            mfcc_embeddings_stat_cos (Dict[str, np.ndarray]): MFCC Stat embeddings for songs.
-            late_fusion_model_path (str): Path to the late fusion model (.pkl) that
-                                          contains unimodal ClassifierChains and final fusion ClassifierChain.
+        The model bundle (loaded from late_fusion_model_path) contains:
+            - "mlb": MultiLabelBinarizer
+            - "word2vec_chain": ClassifierChain for Word2Vec modality
+            - "resnet_chain":   ClassifierChain for ResNet modality
+            - "mfcc_chain":     ClassifierChain for MFCC modality
+            - "fusion_chain":   Final fusion ClassifierChain
+            - "lle_w2v":       LLE transformer for Word2Vec (17 components)
+            - "lle_res":       LLE transformer for ResNet (17 components)
+            - "lle_mfcc":      LLE transformer for MFCC (17 components)
         """
         self.dataset = dataset
         self.word2vec_embeddings = word2vec_embeddings
         self.resnet_embeddings = resnet_embeddings
         self.mfcc_embeddings_stat_cos = mfcc_embeddings_stat_cos
 
-        # Load the late fusion model bundle
-        # {
-        #   "mlb": <MultiLabelBinarizer>,
-        #   "word2vec_chain": <ClassifierChain>,
-        #   "resnet_chain":   <ClassifierChain>,
-        #   "mfcc_chain":     <ClassifierChain>,
-        #   "fusion_chain":   <ClassifierChain>
-        # }
+        # Load the late fusion model bundle.
         with open(late_fusion_model_path, "rb") as f:
             model_bundle = pickle.load(f)
 
@@ -50,6 +47,11 @@ class LateFusionRetrievalSystem:
         self.resnet_chain = model_bundle["resnet_chain"]
         self.mfcc_chain = model_bundle["mfcc_chain"]
         self.fusion_chain = model_bundle["fusion_chain"]
+
+        # Load the LLE transformers used during training for each modality.
+        self.lle_w2v = model_bundle["lle_w2v"]
+        self.lle_res = model_bundle["lle_res"]
+        self.lle_mfcc = model_bundle["lle_mfcc"]
 
     @staticmethod
     def jaccard_similarity(labels_a: set, labels_b: set) -> float:
@@ -70,33 +72,49 @@ class LateFusionRetrievalSystem:
     def get_late_fusion_vector(self, song_id: str) -> np.ndarray:
         """
         Produce a late-fusion feature vector by:
-         1. Passing each modality's raw embedding into its ClassifierChain to get probabilities.
-         2. Concatenating these probability vectors.
+         1. Taking each modality's raw embedding,
+         2. L2-normalizing it,
+         3. Transforming it with the corresponding LLE transformer (to 17 dimensions),
+         4. Passing the reduced vector into its unimodal ClassifierChain to get probability outputs,
+         5. Concatenating these probability vectors.
 
         Args:
             song_id (str): The ID of the song.
 
         Returns:
-            np.ndarray: The fused probability vector for the final ClassifierChain.
+            np.ndarray: The fused probability vector for input to the final fusion classifier.
         """
-        if song_id not in self.word2vec_embeddings \
-           or song_id not in self.resnet_embeddings \
-           or song_id not in self.mfcc_embeddings_stat_cos:
+        if (song_id not in self.word2vec_embeddings or
+            song_id not in self.resnet_embeddings or
+            song_id not in self.mfcc_embeddings_stat_cos):
             raise ValueError(f"Missing embeddings for song ID: {song_id}")
 
-        # Gather each modality's embedding
-        word2vec_vec = self.word2vec_embeddings[song_id].reshape(1, -1)
-        resnet_vec   = self.resnet_embeddings[song_id].reshape(1, -1)
-        mfcc_vec     = self.mfcc_embeddings_stat_cos[song_id].reshape(1, -1)
+        # Get raw embeddings for each modality.
+        word2vec_raw = self.word2vec_embeddings[song_id]
+        resnet_raw = self.resnet_embeddings[song_id]
+        mfcc_raw = self.mfcc_embeddings_stat_cos[song_id]
 
-        # Get unimodal probabilities from each ClassifierChain
-        word2vec_probs = self.word2vec_chain.predict_proba(word2vec_vec)
-        resnet_probs   = self.resnet_chain.predict_proba(resnet_vec)
-        mfcc_probs     = self.mfcc_chain.predict_proba(mfcc_vec)
+        # L2-normalize each modality's raw embedding.
+        def l2_normalize(vec: np.ndarray) -> np.ndarray:
+            norm = np.linalg.norm(vec)
+            return vec if norm == 0 else vec / norm
 
-        # Concatenate unimodal probability outputs => final input vector
+        word2vec_norm = l2_normalize(word2vec_raw)
+        resnet_norm = l2_normalize(resnet_raw)
+        mfcc_norm = l2_normalize(mfcc_raw)
+
+        # Apply the corresponding LLE transformer (which was trained to reduce to 17 components).
+        word2vec_reduced = self.lle_w2v.transform(word2vec_norm.reshape(1, -1))
+        resnet_reduced = self.lle_res.transform(resnet_norm.reshape(1, -1))
+        mfcc_reduced = self.lle_mfcc.transform(mfcc_norm.reshape(1, -1))
+
+        # Get unimodal probability outputs from each ClassifierChain.
+        word2vec_probs = self.word2vec_chain.predict_proba(word2vec_reduced)
+        resnet_probs = self.resnet_chain.predict_proba(resnet_reduced)
+        mfcc_probs = self.mfcc_chain.predict_proba(mfcc_reduced)
+
+        # Concatenate the probability outputs.
         late_fusion_vector = np.hstack([word2vec_probs, resnet_probs, mfcc_probs])
-
         return late_fusion_vector
 
     def get_retrieval(self, query_song: Song, N: int) -> List[Song]:
@@ -115,49 +133,43 @@ class LateFusionRetrievalSystem:
             return []
 
         query_id = query_song.song_id
-        if query_id not in self.word2vec_embeddings \
-                or query_id not in self.resnet_embeddings \
-                or query_id not in self.mfcc_embeddings_stat_cos:
+        # Check that required embeddings exist.
+        if (query_id not in self.word2vec_embeddings or
+            query_id not in self.resnet_embeddings or
+            query_id not in self.mfcc_embeddings_stat_cos):
             return []
 
-        # Get predicted labels for the query song
+        # Get the late-fusion vector for the query song.
         query_vector = self.get_late_fusion_vector(query_id)
         query_pred_bin = self.fusion_chain.predict(query_vector)[0]
 
-        # Align predicted classes to the expected size (len(self.mlb.classes_))
+        # Align predictions to the expected size (if necessary).
         aligned_query_pred = np.zeros(len(self.mlb.classes_), dtype=int)
         aligned_query_pred[:len(query_pred_bin)] = query_pred_bin
 
-        # Convert binary predictions to a set of genre labels
+        # Convert the binary prediction to a set of genre labels.
         query_labels = set(self.mlb.inverse_transform(aligned_query_pred.reshape(1, -1))[0])
 
-        # Compare with all other songs in the dataset
         similarities = []
         for song in self.dataset.get_all_songs():
             if song.song_id == query_id:
                 continue
 
-            if song.song_id in self.word2vec_embeddings \
-                    and song.song_id in self.resnet_embeddings \
-                    and song.song_id in self.mfcc_embeddings_stat_cos:
+            # Ensure the song has all required embeddings.
+            if (song.song_id in self.word2vec_embeddings and
+                song.song_id in self.resnet_embeddings and
+                song.song_id in self.mfcc_embeddings_stat_cos):
                 candidate_vector = self.get_late_fusion_vector(song.song_id)
                 candidate_pred_bin = self.fusion_chain.predict(candidate_vector)[0]
 
-                # Align candidate predictions to the expected size
                 aligned_candidate_pred = np.zeros(len(self.mlb.classes_), dtype=int)
                 aligned_candidate_pred[:len(candidate_pred_bin)] = candidate_pred_bin
-
-                # Convert binary predictions to a set of genre labels
                 candidate_labels = set(self.mlb.inverse_transform(aligned_candidate_pred.reshape(1, -1))[0])
 
-                # Compute Jaccard similarity
                 similarity = self.jaccard_similarity(query_labels, candidate_labels)
                 similarities.append((song, similarity))
 
-        # Sort by similarity descending
         similarities.sort(key=lambda x: x[1], reverse=True)
-
-        # Return the top N
         return [item[0] for item in similarities[:N]]
 
     def generate_retrieval_results(self, N: int) -> Dict[str, Dict]:

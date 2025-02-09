@@ -2,6 +2,7 @@
 import matplotlib.pyplot as plt
 import os
 
+
 class DataPlotter:
     def __init__(self,
                  global_coverage_csv="/results/full/global_coverave.csv",
@@ -94,17 +95,16 @@ class DataPlotter:
 
 
 if __name__ == "__main__":
-    # Example usage
     plotter = DataPlotter(
         global_coverage_csv="results/mfcc/global_coverage.csv",
         evaluation_results_csv="results/mfcc/evaluation_results.csv"
     )
 
-    # 1. Plot global coverage
+    # Plot global coverage
     plotter.plot_global_coverage("results/full10n/global_coverage_plot.png")
 
-    # 2. Group evaluation results
+    # Group evaluation results
     df_grouped = plotter.group_evaluation_results("results/mfcc/evaluation_system_results.csv")
 
-    # 3. Plot histograms of aggregated metrics
+    # Plot histograms of aggregated metrics
     plotter.plot_evaluation_histograms("results/mfcc/evaluation_system_results.csv", "histograms")

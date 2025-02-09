@@ -121,7 +121,7 @@ class BeyondAccuracyMetrics:
 
         return np.mean(unexpectedness_scores) if unexpectedness_scores else 0.0
 
-# Example Usage
+
 if __name__ == "__main__":
     # Sample data
     retrieved = [
