@@ -24,7 +24,7 @@ USE_DIVERSITY_OPTIMIZATION = False
 
 # 1) Load the dataset
 dataset = Dataset(
-    '../dataset/id_information_mmsr.tsv',
+    'dataset/id_information_mmsr.tsv',
     'dataset/id_genres_mmsr.tsv',
     'dataset/id_url_mmsr.tsv',
     'dataset/id_metadata_mmsr.tsv',
@@ -42,10 +42,10 @@ bert_system = EmbeddingRetrievalSystem(dataset, dataset.bert_embeddings, "BERT")
 resnet_system = EmbeddingRetrievalSystem(dataset, dataset.resnet_embeddings, "ResNet")
 vgg19_system = EmbeddingRetrievalSystem(dataset, dataset.vgg19_embeddings, "VGG19")
 mfcc_system = MFCCRetrievalSystem(dataset)
-tfidf_system = TFIDFRetrievalSystem(dataset, '../dataset/id_lyrics_tf-idf_mmsr.tsv')
+tfidf_system = TFIDFRetrievalSystem(dataset, 'dataset/id_lyrics_tf-idf_mmsr.tsv')
 lambdarank_system = LambdaRankRetrievalSystem(
     dataset,
-    '../models/lambdarank_model.pth',
+    'models/lambdarank_model.pth',
     dataset.lambdarank_feature_dim
 )
 early_fusion_system = EarlyFusionRetrievalSystem(
@@ -60,11 +60,11 @@ late_fusion_system = LateFusionRetrievalSystem(
     dataset.word2vec_embeddings,
     dataset.resnet_embeddings,
     dataset.mfcc_embeddings_stat,
-    '../models/late_fusion_model.pkl'
+    'models/late_fusion_model.pkl'
 )
 
 metrics_instance = Metrics()
-diversity_optimizer = SongDiversityOptimizer('../dataset/id_tags_dict.tsv')
+diversity_optimizer = SongDiversityOptimizer('dataset/id_tags_dict.tsv')
 
 # 3) Config
 NUM_REQUESTS = 200  # Number of queries to evaluate
