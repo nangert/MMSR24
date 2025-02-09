@@ -25,3 +25,8 @@ If you use PyCharm just use 'Run current file' which lets you hot-reload the API
 ![alt text](images/image-1.png)
 
 If both front- and back-end are running it should look like the screenshots
+
+
+## Note
+
+The fusion models are unfortunately too large to upload to GitHub.
